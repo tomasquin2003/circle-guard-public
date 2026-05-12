@@ -445,10 +445,25 @@ Tambien se actualizo `k8s/README.md` para documentar el middleware incluido, el 
 
 La definicion se dejo deliberadamente simple para ambiente dev. En particular, Kafka depende de readiness y reintentos propios de los clientes porque Kubernetes no ofrece `depends_on`, y Neo4j conserva `NEO4J_AUTH=neo4j/password` como valor combinado para compatibilidad directa con la imagen oficial.
 
+## 10.2. Fase pruebas - 5 unitarias nuevas
+
+Se implementaron y validaron exactamente 5 pruebas unitarias nuevas:
+1. `JwtTokenServiceTest.generateToken_includesSubjectPermissionsAndExpiration`
+2. `IdentityVaultServiceTest.getOrCreateAnonymousId_whenHashExists_returnsExistingIdWithoutDuplicateSave`
+3. `HealthSurveyServiceTest.submitSurvey_withAttachment_setsPendingAndPublishesSurveySubmitted`
+4. `QrValidationServiceTest.shouldReturnRedForExpiredOrMalformedToken`
+5. `CircleServiceTest.forceFenceCircle_promotesOnlyActiveMembers`
+
+- No se modificó código productivo.
+- Los cambios quedaron en `src/test`.
+- La corrida focalizada terminó en `BUILD SUCCESSFUL`.
+- Esta fase cubre el bloque de 5 pruebas unitarias nuevas de la rúbrica.
+
 ## 11. Puntos del taller ya avanzados
 
 Actualmente se consideran avanzados los siguientes puntos:
 
+- 5 pruebas unitarias nuevas implementadas y validadas.
 - Seleccion de un minimo de seis microservicios dentro del monorepo.
 - Estabilizacion de pruebas base unitarias e integracion en los servicios seleccionados.
 - Preparacion del repositorio para ejecucion automatizada en CI.
@@ -475,27 +490,12 @@ Actualmente se consideran avanzados los siguientes puntos:
 
 Los pendientes principales para completar el taller son:
 
-- Pipeline base dev creado, pero falta evolucionar Jenkins para flujos de `stage`, `master` o `release`.
-- Publicacion de imagenes en un registry para consumo desde CI/CD.
-- Tags oficiales de release.
-- Publicacion formal de releases.
-- Despliegue real en cluster Kubernetes.
-- Ingress para exposicion controlada de servicios.
-- Pruebas E2E.
-- Escenarios de rendimiento con Locust.
+- 5 pruebas de integración nuevas.
+- E2E formal.
+- Locust.
+- Validación real en cluster Kubernetes.
+- Registry / Ingress / pipelines stage-master-release.
 - Documentacion final consolidada y video de entrega.
-
-Estado actual de pendientes relevantes:
-
-- Existe una base Jenkins para dev, pero todavia no estan implementados los pipelines para `stage`, `master` o `release`.
-- La publicacion de imagenes a registry todavia no esta implementada.
-- Los tags oficiales todavia no estan implementados.
-- La publicacion formal de releases todavia no esta implementada.
-- Existe una base de manifests Kubernetes para apps y middleware, pero todavia no se valida despliegue real en cluster.
-- Ingress todavia no esta implementado.
-- E2E formal todavia no esta implementado.
-- Locust todavia no esta implementado.
-- Documentacion final consolidada y video de entrega todavia no estan implementados.
 
 ## 13. Proxima fase recomendada
 
