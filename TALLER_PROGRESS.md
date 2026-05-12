@@ -290,7 +290,63 @@ Tambien se observaron warnings no bloqueantes:
 
 Como resultado, esta fase confirma que el stack Compose ya no solo es valido a nivel de configuracion, sino tambien operativo localmente para el caso de `promotion-service` y su dependencia con Neo4j.
 
-## 9. Puntos del taller ya avanzados
+## 9. Fase Jenkins - pipeline base dev
+
+En esta fase se creo una base inicial de Jenkins para automatizar en CI el flujo tecnico que ya habia sido validado manualmente durante las fases anteriores del taller. Como resultado de esta etapa se crearon los siguientes archivos:
+
+- `Jenkinsfile`
+- `docs/jenkins.md`
+
+El objetivo de esta fase fue trasladar a un pipeline declarativo base para ambiente dev la secuencia ya comprobada localmente:
+
+```text
+test -> bootJar -> docker build -> docker compose config
+```
+
+El `Jenkinsfile` fue creado en la raiz del repositorio con un enfoque claro y documentable para el taller, orientado preferiblemente a un agente Jenkins Linux con Java 21, Gradle Wrapper, Docker CLI y `docker compose` disponibles. No se implemento despliegue real, no se agregaron credenciales externas y no se asumio ningun Docker registry.
+
+Las etapas incluidas en el pipeline base son:
+
+- `Checkout`
+- `Environment Info`
+- `Run Selected Service Tests`
+- `Build Boot JARs`
+- `Build Docker Images`
+- `Validate Docker Compose Config`
+- `Archive Test Reports`
+
+El pipeline trabaja especificamente sobre los seis microservicios seleccionados del taller:
+
+- `circleguard-auth-service`
+- `circleguard-identity-service`
+- `circleguard-promotion-service`
+- `circleguard-notification-service`
+- `circleguard-form-service`
+- `circleguard-gateway-service`
+
+Tambien se agrego una pequena capa de portabilidad para Gradle mediante `isUnix()`, de forma que el pipeline use `./gradlew` en agentes Unix o Linux y `gradlew.bat` en agentes Windows si llegara a ser necesario. Aun asi, la orientacion principal documentada sigue siendo Jenkins sobre Linux con acceso a Docker.
+
+En esta fase se automatizaron los siguientes puntos:
+
+- Ejecucion de tests Gradle de los seis servicios seleccionados.
+- Construccion de artefactos `bootJar`.
+- Construccion de imagenes Docker locales con tag `:dev` usando `Dockerfile.service`.
+- Validacion estructural de `docker-compose.dev.yml` y `docker-compose.app.yml` mediante `docker compose config`.
+- Archivado de reportes JUnit.
+- Archivado de JARs generados y documentacion relevante del taller.
+
+Adicionalmente, se creo `docs/jenkins.md` para dejar documentado:
+
+- El objetivo del pipeline.
+- Los prerequisitos del agente Jenkins.
+- La descripcion de stages.
+- Los comandos manuales equivalentes.
+- Las limitaciones actuales.
+- La evolucion recomendada para siguientes fases.
+
+Es importante dejar explicito que en esta etapa no se ejecuto Jenkins en un servidor real ni se valido un job remoto end-to-end. Lo que si quedo completado fue la creacion del `Jenkinsfile`, su revision base y la documentacion necesaria para usarlo como punto de partida del ambiente dev.
+
+## 10. Puntos del taller ya avanzados
 
 Actualmente se consideran avanzados los siguientes puntos:
 
@@ -308,14 +364,17 @@ Actualmente se consideran avanzados los siguientes puntos:
 - Middleware y microservicios levantados localmente en Docker Compose.
 - Readiness de Neo4j corregido mediante `healthcheck`.
 - `promotion-service` validado operativo en Docker Compose despues del ajuste de readiness.
-- Base tecnica suficiente para comenzar la construccion de pipelines Jenkins.
+- `Jenkinsfile` base creado para ambiente dev.
+- Pipeline dev documentado en `docs/jenkins.md`.
+- Automatizacion de tests, `bootJar`, build de imagenes y validacion Compose en Jenkins.
+- Archivado de reportes JUnit y artefactos del taller desde el pipeline base.
 
-## 10. Puntos pendientes del taller
+## 11. Puntos pendientes del taller
 
 Los pendientes principales para completar el taller son:
 
+- Pipeline base dev creado, pero falta evolucionar Jenkins para flujos de `stage`, `master` o `release`.
 - Publicacion de imagenes en un registry para consumo desde CI/CD.
-- `Jenkinsfile` para ramas `dev`, `stage` y `master`.
 - Manifiestos Kubernetes.
 - Pruebas E2E.
 - Escenarios de rendimiento con Locust.
@@ -324,13 +383,14 @@ Los pendientes principales para completar el taller son:
 
 Estado actual de pendientes relevantes:
 
-- Jenkins todavia no esta implementado.
+- Existe una base Jenkins para dev, pero todavia no estan implementados los pipelines para `stage`, `master` o `release`.
+- La publicacion de imagenes a registry todavia no esta implementada.
 - Kubernetes todavia no esta implementado.
 - E2E formal todavia no esta implementado.
 - Locust todavia no esta implementado.
 - Release Notes automaticas todavia no estan implementadas.
 - Documentacion final consolidada y video de entrega todavia no estan implementados.
 
-## 11. Proxima fase recomendada
+## 12. Proxima fase recomendada
 
-La siguiente fase recomendada es aprovechar esta base Compose ya validada operativamente para integrarla en Jenkins, definir publicacion de imagenes y continuar con manifiestos Kubernetes, pruebas E2E formales y escenarios de rendimiento con Locust. Con el problema de readiness de Neo4j ya resuelto, el entorno local queda en mejor posicion para servir como referencia de CI/CD y despliegue progresivo.
+La siguiente fase recomendada es aprovechar esta base Compose ya validada operativamente y el nuevo pipeline Jenkins base dev para evolucionar Jenkins hacia flujos de `stage` y `master` o `release`, definir publicacion de imagenes y continuar con manifiestos Kubernetes, pruebas E2E formales y escenarios de rendimiento con Locust. Con el problema de readiness de Neo4j ya resuelto y con una automatizacion inicial de CI ya documentada, el entorno local queda en mejor posicion para servir como referencia de CI/CD y despliegue progresivo.
