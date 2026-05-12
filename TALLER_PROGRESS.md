@@ -481,10 +481,40 @@ Se implementaron y validaron exactamente 5 pruebas de integración nuevas:
 - La suite agregada de los cuatro servicios terminó en `BUILD SUCCESSFUL` en `2m 51s`.
 - Esta fase cubre el bloque de 5 pruebas de integración nuevas de la rúbrica.
 
+## 10.4. Fase pruebas - E2E smoke suite
+
+Se documenta que se creó una suite E2E formal tipo smoke/operacional en:
+
+- `e2e/run-e2e.ps1`
+- `e2e/README.md`
+- `e2e/results/.gitkeep`
+
+Indica que la suite valida 5 checks sobre el stack Docker Compose:
+1. auth-service responde HTTP.
+2. identity-service responde HTTP protegido/disponible.
+3. form-service responde HTTP.
+4. gateway-service responde HTTP.
+5. promotion-service responde HTTP y Neo4j está healthy.
+
+Se ejecuta con:
+`powershell -ExecutionPolicy Bypass -File e2e/run-e2e.ps1`
+- La ejecución terminó con exit code 0.
+- Los 5 checks pasaron.
+- Se generó `e2e/results/e2e-report.md`.
+- Códigos HTTP como 401/403/404 son aceptables en esta fase si demuestran que el servicio responde.
+- La suite no modifica código productivo.
+- Esta fase cubre la base de E2E formal del taller como smoke tests operacionales.
+
+Limitaciones:
+- No cubre todavía flujos autenticados completos por falta de seed data.
+- No valida Kafka/Redis con asserts profundos, solo disponibilidad indirecta.
+- notification-service no tiene check HTTP dedicado todavía.
+
 ## 11. Puntos del taller ya avanzados
 
 Actualmente se consideran avanzados los siguientes puntos:
 
+- Suite E2E smoke/operacional creada y validada con exit code 0.
 - 5 pruebas unitarias nuevas implementadas y validadas.
 - 5 pruebas de integración nuevas implementadas y validadas.
 - Seleccion de un minimo de seis microservicios dentro del monorepo.
@@ -513,7 +543,6 @@ Actualmente se consideran avanzados los siguientes puntos:
 
 Los pendientes principales para completar el taller son:
 
-- E2E formal.
 - Locust.
 - Validación real en cluster Kubernetes.
 - Registry / Ingress / pipelines stage-master-release.
