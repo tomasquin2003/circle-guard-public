@@ -1,0 +1,85 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: identity-service
+  namespace: circleguard-dev
+  labels:
+    app: identity-service
+    component: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: identity-service
+      component: backend
+  template:
+    metadata:
+      labels:
+        app: identity-service
+        component: backend
+    spec:
+      containers:
+        - name: identity-service
+          image: circleguard-identity-service:dev
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8083
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:postgresql://postgres:5432/circleguard_identity
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: circleguard-dev-secrets
+                  key: POSTGRES_USERNAME
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: circleguard-dev-secrets
+                  key: POSTGRES_PASSWORD
+            - name: SERVER_PORT
+              value: "8083"
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: circleguard-dev-secrets
+                  key: JWT_SECRET
+          readinessProbe:
+            tcpSocket:
+              port: 8083
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 6
+          livenessProbe:
+            tcpSocket:
+              port: 8083
+            initialDelaySeconds: 45
+            periodSeconds: 20
+            timeoutSeconds: 2
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: identity-service
+  namespace: circleguard-dev
+  labels:
+    app: identity-service
+    component: backend
+spec:
+  type: ClusterIP
+  selector:
+    app: identity-service
+    component: backend
+  ports:
+    - name: http
+      port: 8083
+      targetPort: 8083

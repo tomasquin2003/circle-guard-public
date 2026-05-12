@@ -1,0 +1,115 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: promotion-service
+  namespace: circleguard-dev
+  labels:
+    app: promotion-service
+    component: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: promotion-service
+      component: backend
+  template:
+    metadata:
+      labels:
+        app: promotion-service
+        component: backend
+    spec:
+      containers:
+        - name: promotion-service
+          image: circleguard-promotion-service:dev
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8088
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:postgresql://postgres:5432/circleguard_promotion
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: circleguard-dev-secrets
+                  key: POSTGRES_USERNAME
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: circleguard-dev-secrets
+                  key: POSTGRES_PASSWORD
+            - name: SPRING_NEO4J_URI
+              valueFrom:
+                configMapKeyRef:
+                  name: circleguard-shared-config
+                  key: SPRING_NEO4J_URI
+            - name: SPRING_NEO4J_AUTHENTICATION_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: circleguard-dev-secrets
+                  key: NEO4J_USERNAME
+            - name: SPRING_NEO4J_AUTHENTICATION_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: circleguard-dev-secrets
+                  key: NEO4J_PASSWORD
+            - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
+              valueFrom:
+                configMapKeyRef:
+                  name: circleguard-shared-config
+                  key: SPRING_KAFKA_BOOTSTRAP_SERVERS
+            - name: SPRING_DATA_REDIS_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: circleguard-shared-config
+                  key: SPRING_DATA_REDIS_HOST
+            - name: SPRING_DATA_REDIS_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: circleguard-shared-config
+                  key: SPRING_DATA_REDIS_PORT
+            - name: SERVER_PORT
+              value: "8088"
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: circleguard-dev-secrets
+                  key: JWT_SECRET
+          readinessProbe:
+            tcpSocket:
+              port: 8088
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 6
+          livenessProbe:
+            tcpSocket:
+              port: 8088
+            initialDelaySeconds: 45
+            periodSeconds: 20
+            timeoutSeconds: 2
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: promotion-service
+  namespace: circleguard-dev
+  labels:
+    app: promotion-service
+    component: backend
+spec:
+  type: ClusterIP
+  selector:
+    app: promotion-service
+    component: backend
+  ports:
+    - name: http
+      port: 8088
+      targetPort: 8088

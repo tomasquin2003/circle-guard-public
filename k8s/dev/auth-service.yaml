@@ -1,0 +1,90 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-service
+  namespace: circleguard-dev
+  labels:
+    app: auth-service
+    component: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: auth-service
+      component: backend
+  template:
+    metadata:
+      labels:
+        app: auth-service
+        component: backend
+    spec:
+      containers:
+        - name: auth-service
+          image: circleguard-auth-service:dev
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8180
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:postgresql://postgres:5432/circleguard_auth
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: circleguard-dev-secrets
+                  key: POSTGRES_USERNAME
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: circleguard-dev-secrets
+                  key: POSTGRES_PASSWORD
+            - name: SPRING_LDAP_URLS
+              valueFrom:
+                configMapKeyRef:
+                  name: circleguard-shared-config
+                  key: SPRING_LDAP_URLS
+            - name: SERVER_PORT
+              value: "8180"
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: circleguard-dev-secrets
+                  key: JWT_SECRET
+          readinessProbe:
+            tcpSocket:
+              port: 8180
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 6
+          livenessProbe:
+            tcpSocket:
+              port: 8180
+            initialDelaySeconds: 45
+            periodSeconds: 20
+            timeoutSeconds: 2
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-service
+  namespace: circleguard-dev
+  labels:
+    app: auth-service
+    component: backend
+spec:
+  type: ClusterIP
+  selector:
+    app: auth-service
+    component: backend
+  ports:
+    - name: http
+      port: 8180
+      targetPort: 8180

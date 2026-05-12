@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification-service
+  namespace: circleguard-dev
+  labels:
+    app: notification-service
+    component: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: notification-service
+      component: backend
+  template:
+    metadata:
+      labels:
+        app: notification-service
+        component: backend
+    spec:
+      containers:
+        - name: notification-service
+          image: circleguard-notification-service:dev
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8082
+          env:
+            - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
+              valueFrom:
+                configMapKeyRef:
+                  name: circleguard-shared-config
+                  key: SPRING_KAFKA_BOOTSTRAP_SERVERS
+            - name: AUTH_API_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: circleguard-shared-config
+                  key: AUTH_API_URL
+            - name: SERVER_PORT
+              value: "8082"
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: circleguard-dev-secrets
+                  key: JWT_SECRET
+          readinessProbe:
+            tcpSocket:
+              port: 8082
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 6
+          livenessProbe:
+            tcpSocket:
+              port: 8082
+            initialDelaySeconds: 45
+            periodSeconds: 20
+            timeoutSeconds: 2
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: notification-service
+  namespace: circleguard-dev
+  labels:
+    app: notification-service
+    component: backend
+spec:
+  type: ClusterIP
+  selector:
+    app: notification-service
+    component: backend
+  ports:
+    - name: http
+      port: 8082
+      targetPort: 8082

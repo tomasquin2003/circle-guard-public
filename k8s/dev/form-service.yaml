@@ -1,0 +1,85 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: form-service
+  namespace: circleguard-dev
+  labels:
+    app: form-service
+    component: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: form-service
+      component: backend
+  template:
+    metadata:
+      labels:
+        app: form-service
+        component: backend
+    spec:
+      containers:
+        - name: form-service
+          image: circleguard-form-service:dev
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8086
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:postgresql://postgres:5432/circleguard_form
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: circleguard-dev-secrets
+                  key: POSTGRES_USERNAME
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: circleguard-dev-secrets
+                  key: POSTGRES_PASSWORD
+            - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
+              valueFrom:
+                configMapKeyRef:
+                  name: circleguard-shared-config
+                  key: SPRING_KAFKA_BOOTSTRAP_SERVERS
+            - name: SERVER_PORT
+              value: "8086"
+          readinessProbe:
+            tcpSocket:
+              port: 8086
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 6
+          livenessProbe:
+            tcpSocket:
+              port: 8086
+            initialDelaySeconds: 45
+            periodSeconds: 20
+            timeoutSeconds: 2
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: form-service
+  namespace: circleguard-dev
+  labels:
+    app: form-service
+    component: backend
+spec:
+  type: ClusterIP
+  selector:
+    app: form-service
+    component: backend
+  ports:
+    - name: http
+      port: 8086
+      targetPort: 8086

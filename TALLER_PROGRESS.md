@@ -359,7 +359,69 @@ Esta automatizacion cumple la base de trazabilidad y release notes del taller a 
 
 Se deja explicito que esta automatizacion todavia no representa una release formal: no crea tags Git, no crea GitHub Releases, no hace versionado oficial y no publica artefactos en un registry. Su alcance actual es documental y de trazabilidad dentro de Jenkins.
 
-## 10. Puntos del taller ya avanzados
+## 10. Fase Kubernetes - manifests base
+
+En esta fase se preparo una base inicial de manifests Kubernetes para los seis microservicios seleccionados del taller, con foco en claridad, documentacion y reutilizacion local. No se modifico codigo productivo, no se cambiaron Dockerfiles ni archivos Compose, no se introdujo Helm y no se asumio un registry remoto. Como resultado de esta etapa se crearon los siguientes archivos:
+
+- `k8s/dev/namespace.yaml`
+- `k8s/dev/configmap.yaml`
+- `k8s/dev/secrets.yaml`
+- `k8s/dev/auth-service.yaml`
+- `k8s/dev/identity-service.yaml`
+- `k8s/dev/promotion-service.yaml`
+- `k8s/dev/notification-service.yaml`
+- `k8s/dev/form-service.yaml`
+- `k8s/dev/gateway-service.yaml`
+- `k8s/README.md`
+
+El namespace definido para esta fase es:
+
+```text
+circleguard-dev
+```
+
+La configuracion compartida no sensible fue centralizada en un `ConfigMap` con referencias para:
+
+- PostgreSQL host y puerto
+- URI de Neo4j
+- bootstrap server de Kafka
+- host y puerto de Redis
+- URL de LDAP
+- URL interna del servicio de autenticacion
+
+Las credenciales base de desarrollo se dejaron en un `Secret` usando `stringData` por legibilidad academica, incluyendo:
+
+- `POSTGRES_USERNAME`
+- `POSTGRES_PASSWORD`
+- `JWT_SECRET`
+- `NEO4J_USERNAME`
+- `NEO4J_PASSWORD`
+
+Cada uno de los seis microservicios quedo modelado en su propio archivo con:
+
+- Un `Deployment`
+- Un `Service` `ClusterIP`
+- `replicas: 1`
+- Imagen local `:dev`
+- `imagePullPolicy: IfNotPresent`
+- Variables de entorno alineadas con la fase Docker Compose
+- Probes `tcpSocket` para evitar inventar endpoints HTTP no documentados
+- Requests y limits modestos para ambiente dev
+
+La base creada cubre especificamente:
+
+- `circleguard-auth-service`
+- `circleguard-identity-service`
+- `circleguard-promotion-service`
+- `circleguard-notification-service`
+- `circleguard-form-service`
+- `circleguard-gateway-service`
+
+Tambien se agrego `k8s/README.md` para documentar objetivo, prerequisitos, comandos de validacion y limitaciones actuales de la fase Kubernetes.
+
+Es importante dejar explicito que esta fase no valida todavia un despliegue operativo real. El objetivo fue dejar una base de manifests limpia y revisable para el taller, lista para una futura validacion con middleware, ingress e imagenes publicadas en registry cuando esa fase sea abordada.
+
+## 11. Puntos del taller ya avanzados
 
 Actualmente se consideran avanzados los siguientes puntos:
 
@@ -382,8 +444,9 @@ Actualmente se consideran avanzados los siguientes puntos:
 - Automatizacion de tests, `bootJar`, build de imagenes y validacion Compose en Jenkins.
 - Generacion automatica de Release Notes como artefacto del pipeline Jenkins.
 - Archivado de reportes JUnit y artefactos del taller desde el pipeline base.
+- Manifests Kubernetes base creados para los seis microservicios seleccionados.
 
-## 11. Puntos pendientes del taller
+## 12. Puntos pendientes del taller
 
 Los pendientes principales para completar el taller son:
 
@@ -391,7 +454,9 @@ Los pendientes principales para completar el taller son:
 - Publicacion de imagenes en un registry para consumo desde CI/CD.
 - Tags oficiales de release.
 - Publicacion formal de releases.
-- Manifiestos Kubernetes.
+- Despliegue real en cluster Kubernetes.
+- Manifests de middleware para Kubernetes.
+- Ingress para exposicion controlada de servicios.
 - Pruebas E2E.
 - Escenarios de rendimiento con Locust.
 - Documentacion final consolidada y video de entrega.
@@ -402,11 +467,13 @@ Estado actual de pendientes relevantes:
 - La publicacion de imagenes a registry todavia no esta implementada.
 - Los tags oficiales todavia no estan implementados.
 - La publicacion formal de releases todavia no esta implementada.
-- Kubernetes todavia no esta implementado.
+- Existe una base de manifests Kubernetes, pero todavia no se valida despliegue real en cluster.
+- Los manifests de middleware para Kubernetes todavia no estan implementados.
+- Ingress todavia no esta implementado.
 - E2E formal todavia no esta implementado.
 - Locust todavia no esta implementado.
 - Documentacion final consolidada y video de entrega todavia no estan implementados.
 
-## 12. Proxima fase recomendada
+## 13. Proxima fase recomendada
 
-La siguiente fase recomendada es aprovechar esta base Compose ya validada operativamente y el nuevo pipeline Jenkins base dev para evolucionar Jenkins hacia flujos de `stage` y `master` o `release`, definir publicacion de imagenes y continuar con manifiestos Kubernetes, pruebas E2E formales y escenarios de rendimiento con Locust. Con el problema de readiness de Neo4j ya resuelto y con una automatizacion inicial de CI ya documentada, el entorno local queda en mejor posicion para servir como referencia de CI/CD y despliegue progresivo.
+La siguiente fase recomendada es aprovechar la base Compose ya validada operativamente, el pipeline Jenkins base dev y estos nuevos manifests Kubernetes para evolucionar hacia un despliegue real de cluster con middleware, ingress y estrategia de publicacion de imagenes. En paralelo, sigue siendo conveniente continuar con pipelines de `stage` y `master` o `release`, pruebas E2E formales y escenarios de rendimiento con Locust. Con Compose, Jenkins y Kubernetes base ya documentados, el entorno queda mejor posicionado para avanzar hacia una historia de CI/CD y despliegue progresivo mas completa.
