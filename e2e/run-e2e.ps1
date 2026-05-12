@@ -346,11 +346,28 @@ Test-HttpEndpoint `
 
 # Sub-check: Neo4j container state
 Write-Host "[ SUB-CHECK ] Neo4j container state..." -ForegroundColor Yellow
-$neo4jOk = Assert-DockerContainerRunning -ContainerName "circleguard-neo4j"
-if ($neo4jOk) {
-    Write-Host "              circleguard-neo4j: RUNNING [OK]" -ForegroundColor Green
-} else {
-    Write-Host "              circleguard-neo4j: NOT RUNNING [FAIL]" -ForegroundColor Red
+$neo4jContainer = "circleguard-neo4j"
+try {
+    $healthStatus = (docker inspect --format "{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}" $neo4jContainer 2>&1).Trim()
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "              $($neo4jContainer): NOT RUNNING [FAIL]" -ForegroundColor Red
+        $global:AllPassed = $false
+    } elseif ($healthStatus -match "healthy") {
+        Write-Host "              $($neo4jContainer): HEALTHY [OK]" -ForegroundColor Green
+    } elseif ($healthStatus -match "none" -or $healthStatus -eq "") {
+        $neo4jOk = Assert-DockerContainerRunning -ContainerName $neo4jContainer
+        if ($neo4jOk) {
+            Write-Host "              $($neo4jContainer): RUNNING (no healthcheck) [OK]" -ForegroundColor Green
+        } else {
+            Write-Host "              $($neo4jContainer): NOT RUNNING [FAIL]" -ForegroundColor Red
+            $global:AllPassed = $false
+        }
+    } else {
+        Write-Host "              $($neo4jContainer): $healthStatus [FAIL]" -ForegroundColor Red
+        $global:AllPassed = $false
+    }
+} catch {
+    Write-Host "              $($neo4jContainer): NOT RUNNING [FAIL]" -ForegroundColor Red
     $global:AllPassed = $false
 }
 Write-Host ""

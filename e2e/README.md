@@ -175,7 +175,7 @@ Un timeout, `connection refused`, error DNS, o contenedor en estado no-`running`
 | Es una suite E2E smoke/operacional | El objetivo es evidencia de disponibilidad, no cobertura de regresión funcional. |
 | Kafka y Redis no se verifican directamente | Se infieren como saludables si los servicios dependientes (form-service, gateway-service, promotion-service) responden HTTP. |
 | Neo4j verificado por estado de contenedor | No se ejecutan queries Cypher; el health check de Docker es suficiente para evidencia smoke. |
-| notification-service no tiene check dedicado | Su puerto (8082) no está expuesto al host en la configuración actual de Docker Compose; se verifica indirectamente a través del stack. |
+| notification-service no tiene check dedicado | Por decisión de alcance en esta versión no tiene check HTTP dedicado, a pesar de que su puerto 8082 sí está expuesto al host; se verifica indirectamente a través del stack. |
 
 ---
 

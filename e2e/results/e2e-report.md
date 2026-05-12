@@ -3,7 +3,7 @@
 | Field | Value |
 |-------|-------|
 | **Suite Version** | 1.0.0 |
-| **Execution Date** | 2026-05-11 22:45:54 |
+| **Execution Date** | 2026-05-11 22:59:52 |
 | **Overall Result** | ALL CHECKS PASSED |
 | **Timeout per check** | 10s |
 
@@ -59,18 +59,18 @@
 
 ```
 NAMES                              STATUS                    PORTS
-circleguard-notification-service   Up 34 minutes             0.0.0.0:8082->8082/tcp, [::]:8082->8082/tcp
-circleguard-promotion-service      Up 33 minutes             0.0.0.0:8088->8088/tcp, [::]:8088->8088/tcp
-circleguard-form-service           Up 34 minutes             0.0.0.0:8086->8086/tcp, [::]:8086->8086/tcp
-circleguard-auth-service           Up 34 minutes             0.0.0.0:8180->8180/tcp, [::]:8180->8180/tcp
-circleguard-identity-service       Up 34 minutes             0.0.0.0:8083->8083/tcp, [::]:8083->8083/tcp
-circleguard-gateway-service        Up 34 minutes             0.0.0.0:8087->8087/tcp, [::]:8087->8087/tcp
-circleguard-kafka                  Up 34 minutes             0.0.0.0:9092->9092/tcp, [::]:9092->9092/tcp
-circleguard-postgres               Up 34 minutes             0.0.0.0:5432->5432/tcp, [::]:5432->5432/tcp
-circleguard-redis                  Up 34 minutes             0.0.0.0:6379->6379/tcp, [::]:6379->6379/tcp
-circleguard-neo4j                  Up 34 minutes (healthy)   0.0.0.0:7474->7474/tcp, [::]:7474->7474/tcp, 0.0.0.0:7687->7687/tcp, [::]:7687->7687/tcp
-circleguard-ldap                   Up 34 minutes             0.0.0.0:389->389/tcp, [::]:389->389/tcp, 0.0.0.0:636->636/tcp, [::]:636->636/tcp
-circleguard-zookeeper              Up 34 minutes             2181/tcp, 2888/tcp, 3888/tcp
+circleguard-notification-service   Up 48 minutes             0.0.0.0:8082->8082/tcp, [::]:8082->8082/tcp
+circleguard-promotion-service      Up 47 minutes             0.0.0.0:8088->8088/tcp, [::]:8088->8088/tcp
+circleguard-form-service           Up 48 minutes             0.0.0.0:8086->8086/tcp, [::]:8086->8086/tcp
+circleguard-auth-service           Up 48 minutes             0.0.0.0:8180->8180/tcp, [::]:8180->8180/tcp
+circleguard-identity-service       Up 48 minutes             0.0.0.0:8083->8083/tcp, [::]:8083->8083/tcp
+circleguard-gateway-service        Up 48 minutes             0.0.0.0:8087->8087/tcp, [::]:8087->8087/tcp
+circleguard-kafka                  Up 48 minutes             0.0.0.0:9092->9092/tcp, [::]:9092->9092/tcp
+circleguard-postgres               Up 48 minutes             0.0.0.0:5432->5432/tcp, [::]:5432->5432/tcp
+circleguard-redis                  Up 48 minutes             0.0.0.0:6379->6379/tcp, [::]:6379->6379/tcp
+circleguard-neo4j                  Up 48 minutes (healthy)   0.0.0.0:7474->7474/tcp, [::]:7474->7474/tcp, 0.0.0.0:7687->7687/tcp, [::]:7687->7687/tcp
+circleguard-ldap                   Up 48 minutes             0.0.0.0:389->389/tcp, [::]:389->389/tcp, 0.0.0.0:636->636/tcp, [::]:636->636/tcp
+circleguard-zookeeper              Up 48 minutes             2181/tcp, 2888/tcp, 3888/tcp
 ```
 
 ---
