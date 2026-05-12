@@ -1,0 +1,13 @@
+.git
+.gradle
+build
+**/build/*
+!services/**/build/
+!services/**/build/libs/
+!services/**/build/libs/*.jar
+**/bin
+node_modules
+mobile/node_modules
+.idea
+.vscode
+*.log

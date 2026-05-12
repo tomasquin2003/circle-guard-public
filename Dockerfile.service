@@ -1,0 +1,16 @@
+FROM eclipse-temurin:21-jre
+
+ARG SERVICE_NAME
+
+WORKDIR /app
+
+COPY services/${SERVICE_NAME}/build/libs/ /tmp/libs/
+
+RUN JAR_PATH="$(find /tmp/libs -maxdepth 1 -type f -name '*.jar' ! -name '*-plain.jar' | head -n 1)" \
+    && test -n "$JAR_PATH" \
+    && cp "$JAR_PATH" /app/app.jar \
+    && rm -rf /tmp/libs
+
+EXPOSE 8080
+
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]
