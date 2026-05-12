@@ -353,9 +353,11 @@ Es importante dejar explicito que en esta etapa no se ejecuto Jenkins en un serv
 
 Como extension del pipeline base dev, se agrego una etapa `Generate Release Notes` ubicada despues de la validacion de Compose y antes del archivado final. Esta etapa genera `release-notes/RELEASE_NOTES.md` dentro del workspace del job y lo publica como artefacto del build.
 
-La intencion de esta salida es dejar una evidencia tecnica resumida de cada ejecucion del pipeline sin convertirla todavia en una release formal. El archivo incluye numero de build, nombre del job, rama, commit corto, fecha de generacion, lista de servicios considerados, validaciones realizadas por el pipeline y los ultimos 10 commits del repositorio.
+La intencion de esta salida es dejar una evidencia tecnica resumida de cada ejecucion del pipeline sin convertirla todavia en una release formal. El archivo incluye metadata del build como numero de build, nombre del job, rama, commit corto y fecha de generacion, ademas de la lista de servicios considerados, las validaciones realizadas por el pipeline y los ultimos 10 commits del repositorio.
 
-Se deja explicito que esta automatizacion no crea tags Git, no crea GitHub Releases, no hace versionado oficial y no publica artefactos en un registry. Su alcance actual es documental y de trazabilidad dentro de Jenkins.
+Esta automatizacion cumple la base de trazabilidad y release notes del taller a nivel de pipeline Jenkins, porque deja un artefacto documentado por build con el contexto tecnico minimo de la ejecucion.
+
+Se deja explicito que esta automatizacion todavia no representa una release formal: no crea tags Git, no crea GitHub Releases, no hace versionado oficial y no publica artefactos en un registry. Su alcance actual es documental y de trazabilidad dentro de Jenkins.
 
 ## 10. Puntos del taller ya avanzados
 
