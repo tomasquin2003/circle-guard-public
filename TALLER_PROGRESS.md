@@ -150,7 +150,75 @@ Ademas, se valido exitosamente el mismo flujo para:
 Resultado validado:
 Se construyeron imagenes Docker locales exitosamente para los seis microservicios seleccionados usando la estrategia `bootJar -> docker build`.
 
-## 7. Puntos del taller ya avanzados
+## 7. Fase Docker Compose - middleware + microservicios
+
+En esta fase se preparo la composicion Docker necesaria para ejecutar el middleware existente junto con los seis microservicios seleccionados, sin modificar codigo productivo y sin reemplazar el compose base de desarrollo. Como resultado se crearon o ajustaron los siguientes archivos:
+
+- `docker-compose.app.yml`
+- `docker-compose.dev.yml`
+- `docs/docker-compose.md`
+
+El archivo `docker-compose.app.yml` se creo para declarar los seis microservicios:
+
+- `auth-service`
+- `identity-service`
+- `promotion-service`
+- `notification-service`
+- `form-service`
+- `gateway-service`
+
+La configuracion de cada contenedor se alineo con nombres DNS internos de Docker Compose para evitar dependencias a `localhost` dentro de la red de contenedores. En consecuencia, los servicios quedaron apuntando a dependencias internas como `postgres`, `neo4j`, `kafka`, `redis`, `openldap` y `auth-service`, segun el caso.
+
+Tambien se verifico el archivo `init-db.sql` para confirmar que las bases requeridas por los servicios seleccionados existen efectivamente:
+
+- `circleguard_auth`
+- `circleguard_identity`
+- `circleguard_promotion`
+- `circleguard_form`
+
+Adicionalmente se identifico `circleguard_dashboard`, pero esta base no aplica a los seis servicios incluidos en esta fase.
+
+Durante la preparacion del compose se detecto un riesgo importante en Kafka. Inicialmente el broker anunciaba `PLAINTEXT://localhost:9092`, lo cual puede ser suficiente para clientes ejecutados en el host, pero rompe o vuelve fragil la conectividad desde otros contenedores, ya que dentro de Docker `localhost` apunta al propio contenedor cliente y no al broker. Para corregir este problema se ajusto Kafka a un esquema de doble listener:
+
+- Listener interno para contenedores: `kafka:29092`
+- Listener externo para el host: `localhost:9092`
+
+Como consecuencia, los microservicios que consumen o publican eventos en Kafka fueron configurados para usar:
+
+```text
+SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+```
+
+Este ajuste deja separadas correctamente las rutas de acceso de host y de red interna, evitando que la orquestacion funcione solo parcialmente.
+
+La validacion realizada en esta fase fue exclusivamente estructural y de composicion, mediante:
+
+```powershell
+docker compose -f docker-compose.dev.yml -f docker-compose.app.yml config
+```
+
+Que valida `docker compose config` en este contexto:
+
+- Que ambos archivos Compose pueden combinarse en una sola definicion consistente.
+- Que la sintaxis YAML y la estructura final de servicios son correctas.
+- Que variables, puertos, `depends_on` y redes quedan resueltos en la configuracion final.
+- Que el middleware y las apps son componibles con archivos combinados.
+
+Resultado validado:
+
+```text
+Exit code 0
+```
+
+Warning no bloqueante observado:
+
+```text
+docker-compose.dev.yml: the attribute version is obsolete, it will be ignored
+```
+
+Es importante dejar explicito que esta fase no confirma todavia ejecucion real ni readiness completa. Hasta este punto solo se valido que la configuracion combinada es correcta y coherente; todavia no se ejecuto `docker compose up`.
+
+## 8. Puntos del taller ya avanzados
 
 Actualmente se consideran avanzados los siguientes puntos:
 
@@ -161,13 +229,17 @@ Actualmente se consideran avanzados los siguientes puntos:
 - Dockerfile parametrizable creado para empaquetar microservicios Spring Boot desde la raiz del monorepo.
 - Imagenes Docker locales construidas para los seis servicios seleccionados.
 - Documentacion de dockerizacion creada para soportar la siguiente fase de integracion con Jenkins.
+- Docker Compose de apps creado para los seis microservicios seleccionados.
+- Middleware y apps componibles usando `docker-compose.dev.yml` y `docker-compose.app.yml`.
+- Listener Kafka interno y externo configurado para separar trafico entre contenedores y acceso desde host.
 - Base tecnica suficiente para comenzar la construccion de pipelines Jenkins.
 
-## 8. Puntos pendientes del taller
+## 9. Puntos pendientes del taller
 
 Los pendientes principales para completar el taller son:
 
-- `docker-compose` con servicios de aplicacion para ambiente de desarrollo.
+- Ejecutar `docker compose up` y validar el arranque real del middleware junto con las aplicaciones.
+- Revisar logs, readiness y health de los servicios dockerizados una vez levantados.
 - Healthchecks y definicion operativa de arranque para los servicios dockerizados.
 - Publicacion de imagenes en un registry para consumo desde CI/CD.
 - `Jenkinsfile` para ramas `dev`, `stage` y `master`.
@@ -179,11 +251,13 @@ Los pendientes principales para completar el taller son:
 
 Estado actual de pendientes relevantes:
 
-- `docker-compose` todavia no esta implementado.
+- La configuracion `docker-compose` ya es valida, pero todavia no se ha ejecutado `up`.
+- La validacion operativa de logs y healthchecks todavia no esta implementada.
 - Kubernetes todavia no esta implementado.
 - Jenkins todavia no esta implementado.
 - Locust todavia no esta implementado.
+- E2E todavia no esta implementado.
 
-## 9. Proxima fase recomendada
+## 10. Proxima fase recomendada
 
-La siguiente fase recomendada es preparar un `docker-compose` de ambiente `dev` sobre la base del `Dockerfile.service` ya validado, incorporar healthchecks y definir la publicacion de imagenes para luego integrarla en Jenkins. Ese paso permitira pasar de la estabilizacion de pruebas y el empaquetado local a una base concreta de orquestacion, CI/CD y despliegue progresivo.
+La siguiente fase recomendada es ejecutar el stack con `docker compose up`, inspeccionar logs y comportamiento de arranque, y luego incorporar healthchecks o mecanismos de espera donde sea necesario. Una vez validado ese entorno de ejecucion, el siguiente paso natural es integrar esta base en Jenkins, definir publicacion de imagenes y continuar con Kubernetes, E2E y escenarios de rendimiento con Locust.
