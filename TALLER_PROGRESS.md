@@ -421,6 +421,30 @@ Tambien se agrego `k8s/README.md` para documentar objetivo, prerequisitos, coman
 
 Es importante dejar explicito que esta fase no valida todavia un despliegue operativo real. El objetivo fue dejar una base de manifests limpia y revisable para el taller, lista para una futura validacion con middleware, ingress e imagenes publicadas en registry cuando esa fase sea abordada.
 
+## 10.1. Fase Kubernetes - middleware base
+
+Como extension de la base inicial de apps en Kubernetes, se agregaron manifests base para el middleware requerido por los seis microservicios seleccionados. Esta fase mantuvo el mismo enfoque academico y dev: sin Helm, sin Ingress, sin registry remoto y sin despliegue real en cluster. Como resultado se crearon los siguientes archivos:
+
+- `k8s/dev/postgres.yaml`
+- `k8s/dev/redis.yaml`
+- `k8s/dev/neo4j.yaml`
+- `k8s/dev/zookeeper.yaml`
+- `k8s/dev/kafka.yaml`
+- `k8s/dev/openldap.yaml`
+
+La base de middleware creada cubre:
+
+- PostgreSQL 16 con `StatefulSet`, `Service`, PVC e inicializacion de bases a traves de un `ConfigMap` `postgres-initdb`
+- Redis 7.2 con `Deployment` y `Service`
+- Neo4j 5.26 con `StatefulSet`, `Service` y PVC para `/data`
+- Zookeeper 7.6.0 con `Deployment` y `Service`
+- Kafka 7.6.0 con `Deployment` y `Service` interno en `kafka:29092`
+- OpenLDAP 1.5.0 con `Deployment` y `Service`
+
+Tambien se actualizo `k8s/README.md` para documentar el middleware incluido, el orden sugerido de aplicacion, comandos de inspeccion y limitaciones actuales de esta fase.
+
+La definicion se dejo deliberadamente simple para ambiente dev. En particular, Kafka depende de readiness y reintentos propios de los clientes porque Kubernetes no ofrece `depends_on`, y Neo4j conserva `NEO4J_AUTH=neo4j/password` como valor combinado para compatibilidad directa con la imagen oficial.
+
 ## 11. Puntos del taller ya avanzados
 
 Actualmente se consideran avanzados los siguientes puntos:
@@ -445,6 +469,7 @@ Actualmente se consideran avanzados los siguientes puntos:
 - Generacion automatica de Release Notes como artefacto del pipeline Jenkins.
 - Archivado de reportes JUnit y artefactos del taller desde el pipeline base.
 - Manifests Kubernetes base creados para los seis microservicios seleccionados.
+- Middleware Kubernetes base creado para PostgreSQL, Redis, Neo4j, Kafka/Zookeeper y OpenLDAP.
 
 ## 12. Puntos pendientes del taller
 
@@ -455,7 +480,6 @@ Los pendientes principales para completar el taller son:
 - Tags oficiales de release.
 - Publicacion formal de releases.
 - Despliegue real en cluster Kubernetes.
-- Manifests de middleware para Kubernetes.
 - Ingress para exposicion controlada de servicios.
 - Pruebas E2E.
 - Escenarios de rendimiento con Locust.
@@ -467,8 +491,7 @@ Estado actual de pendientes relevantes:
 - La publicacion de imagenes a registry todavia no esta implementada.
 - Los tags oficiales todavia no estan implementados.
 - La publicacion formal de releases todavia no esta implementada.
-- Existe una base de manifests Kubernetes, pero todavia no se valida despliegue real en cluster.
-- Los manifests de middleware para Kubernetes todavia no estan implementados.
+- Existe una base de manifests Kubernetes para apps y middleware, pero todavia no se valida despliegue real en cluster.
 - Ingress todavia no esta implementado.
 - E2E formal todavia no esta implementado.
 - Locust todavia no esta implementado.
