@@ -596,6 +596,20 @@ Hallazgos:
 - En la corrida de carga el comportamiento fue estable y sin repeticion de ese pico, quedando el maximo agregado en `88.81 ms`.
 - Los CSV de `failures` y `exceptions` quedaron sin eventos funcionales o de infraestructura.
 
+## 10.6. Fase Jenkins - pipelines stage y master
+
+Se crearon los pipelines `Jenkinsfile.stage` y `Jenkinsfile.master` para cubrir los ambientes stage y master solicitados por la rubrica, manteniendo intacto el `Jenkinsfile` base de dev. Esta fase se enfoco en dejar pipelines minimos, defendibles y parametrizados, sin asumir registry remoto real ni cluster Kubernetes disponible fuera del contexto de Jenkins.
+
+Alcance implementado:
+
+- `Jenkinsfile.stage` cubre build, pruebas, construccion de imagenes Docker locales, validacion Kubernetes por dry-run, deploy parametrizado con `DEPLOY_TO_K8S` y ejecucion E2E cuando el agente soporte PowerShell.
+- `Jenkinsfile.master` cubre full tests, build de JARs, imagenes Docker locales, validacion Docker Compose, validacion Kubernetes, E2E smoke/functional, Locust smoke, deploy Kubernetes parametrizado y generacion automatica de `release-notes/RELEASE_NOTES.md`.
+- `docs/jenkins-stage-master.md` documenta objetivos, prerequisitos del agente, parametros, stages, artefactos, pantallazos sugeridos y limitaciones.
+
+Pendiente:
+
+- Quedan pendientes screenshots de ejecucion real en Jenkins si estos pipelines no se ejecutan en un servidor Jenkins con agentes configurados.
+
 ## 11. Puntos del taller ya avanzados
 
 Actualmente se consideran avanzados los siguientes puntos:

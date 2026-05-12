@@ -1,0 +1,252 @@
+def selectedServices = [
+    'circleguard-auth-service',
+    'circleguard-identity-service',
+    'circleguard-promotion-service',
+    'circleguard-notification-service',
+    'circleguard-form-service',
+    'circleguard-gateway-service'
+]
+
+def gradleWrapper() {
+    return isUnix() ? './gradlew' : 'gradlew.bat'
+}
+
+def runCommand(String command) {
+    if (isUnix()) {
+        sh command
+    } else {
+        bat command
+    }
+}
+
+def runCommandOutput(String command) {
+    if (isUnix()) {
+        return sh(script: command, returnStdout: true).trim()
+    }
+
+    return bat(script: "@echo off\r\n${command}", returnStdout: true).trim()
+}
+
+def commandAvailable(String linuxCommand, String windowsCommand) {
+    if (isUnix()) {
+        return sh(script: linuxCommand, returnStatus: true) == 0
+    }
+
+    return bat(script: "@echo off\r\n${windowsCommand}", returnStatus: true) == 0
+}
+
+def generateReleaseNotes() {
+    def branchName = env.BRANCH_NAME ?: env.GIT_BRANCH ?: runCommandOutput('git rev-parse --abbrev-ref HEAD')
+    def commit = runCommandOutput('git rev-parse HEAD')
+    def generatedAt = new Date().format("yyyy-MM-dd HH:mm:ss 'UTC'", TimeZone.getTimeZone('UTC'))
+    def recentCommits = runCommandOutput('git log --pretty=format:"- %h %s" -10')
+    def deploymentTarget = params.DEPLOY_TO_K8S ? 'Kubernetes master target via kubectl apply -f k8s/dev/' : 'Kubernetes dry-run only; real apply disabled by DEPLOY_TO_K8S=false'
+    def testsExecuted = [
+        'Gradle full test suite: test',
+        'Boot JAR build for selected deployable services',
+        'Docker image build for selected deployable services',
+        'Docker Compose config validation',
+        'Kubernetes manifest dry-run validation',
+        'E2E smoke + functional suite',
+        'Locust smoke performance test'
+    ]
+
+    def releaseNotes = """# CircleGuard Release Notes
+
+## Build metadata
+
+- Job name: ${env.JOB_NAME ?: 'N/A'}
+- Build number: ${env.BUILD_NUMBER ?: 'N/A'}
+- Branch: ${branchName}
+- Commit: ${commit}
+- Date: ${generatedAt}
+
+## Services
+
+${selectedServices.collect { "- ${it}" }.join('\n')}
+
+## Tests executed
+
+${testsExecuted.collect { "- ${it}" }.join('\n')}
+
+## Deployment target
+
+- ${deploymentTarget}
+
+## Last 10 commits
+
+${recentCommits}
+"""
+
+    dir('release-notes') {
+        writeFile file: 'RELEASE_NOTES.md', text: releaseNotes
+    }
+}
+
+pipeline {
+    agent any
+
+    options {
+        skipDefaultCheckout(true)
+    }
+
+    parameters {
+        booleanParam(
+            name: 'DEPLOY_TO_K8S',
+            defaultValue: false,
+            description: 'Si es true ejecuta kubectl apply real contra el kubeconfig del agente. Si es false solo ejecuta dry-run.'
+        )
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Environment Info') {
+            steps {
+                script {
+                    runCommand('java --version')
+                    runCommand("${gradleWrapper()} --version")
+                    runCommand('docker --version')
+                    runCommand('docker compose version')
+                    runCommand('kubectl version --client=true')
+                    if (commandAvailable('command -v python >/dev/null 2>&1', 'where python >nul 2>nul')) {
+                        runCommand('python --version')
+                    } else {
+                        echo 'Python no esta disponible en PATH; el stage Run Locust Smoke fallara con una explicacion explicita.'
+                    }
+                }
+            }
+        }
+
+        stage('Run Full Test Suite') {
+            steps {
+                script {
+                    runCommand("${gradleWrapper()} test --console=plain --no-daemon")
+                }
+            }
+            post {
+                always {
+                    junit allowEmptyResults: true, testResults: '**/build/test-results/test/*.xml'
+                }
+            }
+        }
+
+        stage('Build Boot JARs') {
+            steps {
+                script {
+                    def jarTasks = selectedServices.collect { service ->
+                        ":services:${service}:bootJar"
+                    }.join(' ')
+
+                    runCommand("${gradleWrapper()} ${jarTasks} --console=plain --no-daemon")
+                }
+            }
+        }
+
+        stage('Build Docker Images') {
+            steps {
+                script {
+                    selectedServices.each { service ->
+                        runCommand("docker build -f Dockerfile.service --build-arg SERVICE_NAME=${service} -t ${service}:master .")
+                    }
+                }
+            }
+        }
+
+        stage('Validate Docker Compose Config') {
+            steps {
+                script {
+                    runCommand('docker compose -f docker-compose.dev.yml -f docker-compose.app.yml config')
+                }
+            }
+        }
+
+        stage('Validate Kubernetes Manifests') {
+            steps {
+                script {
+                    runCommand('kubectl apply --dry-run=client -f k8s/dev/')
+                }
+            }
+        }
+
+        stage('Run E2E Smoke + Functional') {
+            steps {
+                script {
+                    if (isUnix()) {
+                        if (commandAvailable('command -v pwsh >/dev/null 2>&1', 'where pwsh >nul 2>nul')) {
+                            runCommand('pwsh -ExecutionPolicy Bypass -File e2e/run-e2e.ps1')
+                        } else {
+                            echo 'Agente Linux sin pwsh: E2E PowerShell no ejecutado. Alternativa documentada en docs/jenkins-stage-master.md.'
+                        }
+                    } else {
+                        runCommand('powershell -ExecutionPolicy Bypass -File e2e/run-e2e.ps1')
+                    }
+                }
+            }
+        }
+
+        stage('Run Locust Smoke') {
+            steps {
+                script {
+                    def pythonOk = commandAvailable('command -v python >/dev/null 2>&1', 'where python >nul 2>nul')
+                    if (!pythonOk) {
+                        error 'Python no esta disponible en el agente Jenkins. Instalar Python y Locust segun performance/locust/requirements.txt.'
+                    }
+
+                    def locustOk = commandAvailable('python -m locust --version >/dev/null 2>&1', 'python -m locust --version >nul 2>nul')
+                    if (!locustOk) {
+                        error 'Locust no esta disponible para python -m locust. Instalar dependencias con performance/locust/requirements.txt.'
+                    }
+
+                    runCommand('python -m locust -f performance/locust/locustfile.py --host http://localhost --headless -u 5 -r 1 -t 30s --csv performance/locust/results/jenkins-master-smoke')
+                }
+            }
+        }
+
+        stage('Deploy to Kubernetes Master') {
+            steps {
+                script {
+                    if (params.DEPLOY_TO_K8S) {
+                        echo 'DEPLOY_TO_K8S=true: aplicando manifiestos sobre el cluster configurado en el agente Jenkins.'
+                        runCommand('kubectl apply -f k8s/dev/')
+                    } else {
+                        echo 'DEPLOY_TO_K8S=false: no se ejecuta apply real; se conserva dry-run como evidencia defendible.'
+                        runCommand('kubectl apply --dry-run=client -f k8s/dev/')
+                    }
+                }
+            }
+        }
+
+        stage('Generate Release Notes') {
+            steps {
+                script {
+                    generateReleaseNotes()
+                }
+            }
+        }
+
+        stage('Archive Release Artifacts') {
+            steps {
+                junit allowEmptyResults: true, testResults: '**/build/test-results/test/*.xml'
+                archiveArtifacts allowEmptyArchive: true, artifacts: '**/build/test-results/test/*.xml, services/**/build/libs/*.jar, e2e/results/*.md, performance/locust/results/*.csv, release-notes/*.md, docs/*.md'
+            }
+        }
+    }
+
+    post {
+        always {
+            junit allowEmptyResults: true, testResults: '**/build/test-results/test/*.xml'
+            archiveArtifacts allowEmptyArchive: true, artifacts: '**/build/test-results/test/*.xml, services/**/build/libs/*.jar, e2e/results/*.md, performance/locust/results/*.csv, release-notes/*.md, docs/*.md'
+        }
+        success {
+            echo 'Pipeline master completado: full tests, bootJar, Docker, Compose, Kubernetes, E2E, Locust smoke, deploy parametrizado y release notes.'
+        }
+        failure {
+            echo 'Pipeline master fallido. Revisar pruebas, herramientas del agente, Docker daemon, kubeconfig o disponibilidad del stack para E2E/Locust.'
+        }
+    }
+}
