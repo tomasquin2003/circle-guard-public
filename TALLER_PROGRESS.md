@@ -481,40 +481,55 @@ Se implementaron y validaron exactamente 5 pruebas de integración nuevas:
 - La suite agregada de los cuatro servicios terminó en `BUILD SUCCESSFUL` en `2m 51s`.
 - Esta fase cubre el bloque de 5 pruebas de integración nuevas de la rúbrica.
 
-## 10.4. Fase pruebas - E2E smoke suite
+## 10.4. Fase pruebas - E2E smoke + functional suite
 
-Se documenta que se creó una suite E2E formal tipo smoke/operacional en:
+Se fortalecio la suite E2E formal, pasando de smoke/operacional a una suite hibrida smoke + functional en:
 
 - `e2e/run-e2e.ps1`
 - `e2e/README.md`
 - `e2e/results/.gitkeep`
+- `e2e/results/e2e-report.md`
 
-Indica que la suite valida 5 checks sobre el stack Docker Compose:
+La suite mantiene los 5 smoke checks criticos sobre el stack Docker Compose:
 1. auth-service responde HTTP.
 2. identity-service responde HTTP protegido/disponible.
 3. form-service responde HTTP.
 4. gateway-service responde HTTP.
-5. promotion-service responde HTTP y Neo4j está healthy.
+5. promotion-service responde HTTP y Neo4j esta healthy.
+
+Tambien agrega functional E2E checks sobre endpoints reales:
+1. `POST /api/v1/identities/map` + `GET /api/v1/identities/lookup/{id}`.
+2. `GET /api/v1/certificates/pending`.
+3. `POST /api/v1/health/recovery/{id}` documentado como no ejecutable sin seed data/JWT.
+4. `POST /api/v1/gate/validate`.
+
+Adicionalmente se registra reachability de notification-service en `http://localhost:8082/actuator/health` como evidencia operacional, no como flujo funcional de negocio, porque el servicio no expone controllers REST de negocio y opera principalmente con listeners Kafka.
 
 Se ejecuta con:
 `powershell -ExecutionPolicy Bypass -File e2e/run-e2e.ps1`
-- La ejecución terminó con exit code 0.
-- Los 5 checks pasaron.
-- Se generó `e2e/results/e2e-report.md`.
-- Códigos HTTP como 401/403/404 son aceptables en esta fase si demuestran que el servicio responde.
+- La ejecucion robustecida termino con exit code 0.
+- Los 5 smoke checks pasaron.
+- Functional E2E termino con 2 PASS, 1 BLOCKED_BY_AUTH y 1 SKIPPED_NO_SEED.
+- Identity map creo `anonymousId`, pero lookup quedo `BLOCKED_BY_AUTH` porque Spring Security exige JWT con `identity:lookup`.
+- Certificates/Form paso con `200 []`, valido como respuesta funcional cuando no hay seed surveys pendientes.
+- Promotion recovery quedo `SKIPPED_NO_SEED` porque no existe id Neo4j seed ni credenciales `HEALTH_CENTER`; el flujo esta cubierto en integracion con Testcontainers.
+- Gateway QR validation paso rechazando un token invalido como `RED`/invalid.
+- Se genero `e2e/results/e2e-report.md` con resumen, tablas, Docker snapshot, Neo4j health, endpoints invocados y limitaciones.
+- Codigos HTTP como 401/403/404 siguen siendo aceptables en smoke si demuestran que el servicio responde.
 - La suite no modifica código productivo.
-- Esta fase cubre la base de E2E formal del taller como smoke tests operacionales.
+- Esta fase cubre una base E2E formal mas defendible para el taller, sin afirmar cobertura funcional completa donde faltan auth/seed data.
 
 Limitaciones:
-- No cubre todavía flujos autenticados completos por falta de seed data.
+- No cubre todavia flujos autenticados completos por falta de credenciales/JWT seed.
 - No valida Kafka/Redis con asserts profundos, solo disponibilidad indirecta.
-- notification-service no tiene check HTTP dedicado todavía.
+- No inventa certificados, usuarios ni ids de recuperacion.
+- Locust sigue pendiente para rendimiento.
 
 ## 11. Puntos del taller ya avanzados
 
 Actualmente se consideran avanzados los siguientes puntos:
 
-- Suite E2E smoke/operacional creada y validada con exit code 0.
+- Suite E2E smoke + functional creada y validada con exit code 0.
 - 5 pruebas unitarias nuevas implementadas y validadas.
 - 5 pruebas de integración nuevas implementadas y validadas.
 - Seleccion de un minimo de seis microservicios dentro del monorepo.

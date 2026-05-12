@@ -1,207 +1,115 @@
-# CircleGuard – E2E Test Suite
+# CircleGuard - E2E Test Suite
 
-> **Taller de Pruebas y Release 261** · rama `master`
-
----
+> Taller de Pruebas y Release 261 - rama `master`
 
 ## Objetivo
 
-Esta suite valida la **disponibilidad operacional end-to-end** del stack de microservicios de CircleGuard desplegado localmente con Docker Compose.
+Esta suite es ahora hibrida:
 
-No es una suite de regresión funcional completa; su propósito es:
+- Smoke / operational E2E: valida que el stack Docker Compose este levantado, que los contenedores criticos corran y que los servicios respondan HTTP.
+- Functional E2E: ejecuta flujos REST reales cuando existen endpoints disponibles y cuando la seguridad/seed data lo permiten.
 
-1. Confirmar que todos los contenedores críticos están corriendo.
-2. Verificar que cada microservicio responde a peticiones HTTP (smoke check).
-3. Generar un reporte estructurado en Markdown que sirva de evidencia reproducible.
-4. Fallar con `exit code 1` si algún servicio no responde, para integración con pipelines CI/CD.
-
----
+El script genera evidencia reproducible en Markdown y termina con `exit code 1` si falla un smoke critico o si un functional check clasificado como `FAIL` detecta un endpoint que deberia funcionar.
 
 ## Prerrequisitos
 
-| Requisito | Versión mínima |
-|-----------|---------------|
+| Requisito | Version minima |
+|-----------|----------------|
 | Docker Desktop (Windows) | 24.x o superior |
-| PowerShell | 5.1 o superior (incluido en Windows 10/11) |
-| Stack Compose levantado | ver sección siguiente |
+| PowerShell | 5.1 o superior |
+| Stack Compose levantado | `docker-compose.dev.yml` + `docker-compose.app.yml` |
 
----
-
-## Levantar el stack
-
-Desde la raíz del proyecto:
+Levantar el stack desde la raiz del proyecto:
 
 ```powershell
 docker compose -f docker-compose.dev.yml -f docker-compose.app.yml up -d
 ```
 
-Verificar que los contenedores estén `Up`:
-
-```powershell
-docker ps --format "table {{.Names}}`t{{.Status}}`t{{.Ports}}"
-```
-
-Servicios esperados y puertos:
-
-| Servicio | Puerto host |
-|----------|------------|
-| `circleguard-auth-service` | 8180 |
-| `circleguard-identity-service` | 8083 |
-| `circleguard-notification-service` | 8082 |
-| `circleguard-form-service` | 8086 |
-| `circleguard-gateway-service` | 8087 |
-| `circleguard-promotion-service` | 8088 |
-| `circleguard-postgres` | 5432 |
-| `circleguard-neo4j` | 7474 / 7687 |
-| `circleguard-kafka` | 9092 |
-| `circleguard-redis` | 6379 |
-| `circleguard-ldap` | 389 / 636 |
-| `circleguard-zookeeper` | — |
-
----
-
-## Ejecutar la suite E2E
-
-Desde la raíz del proyecto:
+Ejecutar la suite:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File e2e/run-e2e.ps1
 ```
 
-El script:
-1. Verifica el daemon Docker.
-2. Muestra el estado actual de contenedores.
-3. Ejecuta los 5 checks E2E.
-4. Genera `e2e/results/e2e-report.md`.
-5. Termina con `exit 0` (todo OK) o `exit 1` (algún fallo).
+## Smoke / Operational Checks
 
----
+Los 5 smoke checks actuales se mantienen como criticos:
 
-## Los 5 checks E2E
+| # | Check | Endpoint | Criterio |
+|---|-------|----------|----------|
+| 1 | auth-service | `http://localhost:8180/actuator/health` | Cualquier HTTP aceptable prueba reachability. |
+| 2 | identity-service | `http://localhost:8083/actuator/health` | `401/403/404` tambien prueban que Spring Boot responde. |
+| 3 | form-service | `http://localhost:8086/actuator/health` | Valida reachability del servicio dependiente de PostgreSQL/Kafka. |
+| 4 | gateway-service | `http://localhost:8087/actuator/health` | Valida reachability del gateway y stack Redis asociado. |
+| 5 | promotion-service + Neo4j | `http://localhost:8088/actuator/health` | Valida reachability del servicio y health real de `circleguard-neo4j`. |
 
-### Check 1 – auth-service HTTP reachability
+Codigos HTTP aceptados como evidencia operacional:
 
-| Campo | Detalle |
-|-------|---------|
-| **URL** | `http://localhost:8180/actuator/health` |
-| **Contenedor** | `circleguard-auth-service` |
-| **Códigos aceptables** | 200, 401, 403, 404 |
-| **Qué valida** | El servidor Spring Boot de autenticación (LDAP + PostgreSQL) está arriba y acepta conexiones TCP/HTTP. |
-| **Limitación** | No se realiza autenticación real; no se verifica que LDAP esté correctamente seedado. |
+`200, 201, 204, 301, 302, 400, 401, 403, 404, 405`
 
----
+Tambien se captura reachability adicional de `notification-service` en `http://localhost:8082/actuator/health`. No se cuenta como functional E2E porque el servicio no expone controllers REST de negocio; su comportamiento principal esta basado en listeners Kafka.
 
-### Check 2 – identity-service HTTP reachability
+## Functional E2E Flows
 
-| Campo | Detalle |
-|-------|---------|
-| **URL** | `http://localhost:8083/actuator/health` |
-| **Contenedor** | `circleguard-identity-service` |
-| **Códigos aceptables** | 200, 401, 403, 404 |
-| **Qué valida** | El microservicio de identidad (perfiles de usuario, PostgreSQL) está corriendo. Un 401/403 es PASS porque demuestra que el servidor responde. |
-| **Limitación** | No se validan endpoints de negocio ni se prueban tokens JWT. |
+| Flow | Endpoint(s) | Comportamiento esperado |
+|------|-------------|-------------------------|
+| Identity map/lookup | `POST /api/v1/identities/map`, `GET /api/v1/identities/lookup/{id}` | Crea un `anonymousId`; lookup pasa si hay token valido o queda `BLOCKED_BY_AUTH` si Spring Security bloquea sin JWT. |
+| Certificates/Form | `GET /api/v1/certificates/pending` | Pasa con `200`, incluso si devuelve lista vacia por falta de seed surveys. |
+| Promotion recovery | `POST /api/v1/health/recovery/{id}` | Se ejecuta solo si existe un id seed valido y credenciales `HEALTH_CENTER`; si no, queda `SKIPPED_NO_SEED`. |
+| Gateway route | `POST /api/v1/gate/validate` | Procesa un token QR intencionalmente invalido y debe responder `RED`/invalid sin usar credenciales reales. |
+| Notification reachability | `GET /actuator/health` en puerto `8082` | Se registra como evidencia operacional adicional, no como flujo funcional de negocio. |
 
----
+## Clasificaciones
 
-### Check 3 – form-service HTTP reachability
+| Estado | Significado | Afecta exit code |
+|--------|-------------|------------------|
+| `PASS` | El flujo funcional se ejecuto y valido el resultado esperado. | No |
+| `FAIL` | El endpoint existe/deberia funcionar pero respondio de forma inesperada. | Si |
+| `BLOCKED_BY_AUTH` | Seguridad real bloqueo el flujo sin JWT/credenciales seed. | No |
+| `SKIPPED_NO_SEED` | No existe data semilla confiable para ejecutar el caso sin inventar datos. | No |
+| `SKIPPED_NOT_AVAILABLE` | No hay endpoint/ruta real disponible para ese flujo. | No |
 
-| Campo | Detalle |
-|-------|---------|
-| **URL** | `http://localhost:8086/actuator/health` |
-| **Contenedor** | `circleguard-form-service` |
-| **Códigos aceptables** | 200, 401, 403, 404 |
-| **Qué valida** | El microservicio de formularios (PostgreSQL + Kafka) está corriendo. Si pasa, confirma que las dependencias de infraestructura (DB y bus de eventos) también están funcionales. |
-| **Limitación** | No se envían formularios ni se verifica Kafka end-to-end. |
-
----
-
-### Check 4 – gateway-service HTTP reachability
-
-| Campo | Detalle |
-|-------|---------|
-| **URL** | `http://localhost:8087/actuator/health` |
-| **Contenedor** | `circleguard-gateway-service` |
-| **Códigos aceptables** | 200, 401, 403, 404 |
-| **Qué valida** | El API Gateway (Spring Cloud Gateway + Redis) está operativo. Este es el punto de entrada único para tráfico externo; su disponibilidad implica que Redis y el enrutamiento funcionan. |
-| **Limitación** | No se prueban rutas específicas del gateway ni se valida rate-limiting. |
-
----
-
-### Check 5 – promotion-service + Neo4j health
-
-| Campo | Detalle |
-|-------|---------|
-| **URL** | `http://localhost:8088/actuator/health` |
-| **Contenedor** | `circleguard-promotion-service` (+ sub-check `circleguard-neo4j`) |
-| **Códigos aceptables** | 200, 401, 403, 404 |
-| **Qué valida** | El microservicio de promociones (PostgreSQL + Neo4j + Kafka + Redis) responde HTTP. Al tener la cadena de dependencias más larga, un PASS aquí confirma que el stack completo de infraestructura está operativo. Se realiza también un sub-check del estado del contenedor `circleguard-neo4j`. |
-| **Limitación** | No se ejecutan queries Cypher; la salud de Neo4j se infiere del estado del contenedor y del health check interno de Docker. |
-
----
+`BLOCKED_BY_AUTH` no es fallo de infraestructura. En esta suite es evidencia util de que Spring Security/JWT esta activo cuando no existen credenciales seed para automatizar el flujo completo.
 
 ## Reporte generado
 
 El reporte se guarda en:
 
-```
+```text
 e2e/results/e2e-report.md
 ```
 
-Contiene:
-- Fecha/hora de ejecución.
-- Tabla resumen con todos los checks (URL, contenedor, HTTP status, PASS/FAIL).
-- Descripción detallada de cada check.
-- Snapshot de `docker ps` en el momento de ejecución.
-- Lista de códigos HTTP aceptables.
-- Sección de limitaciones.
+Incluye:
 
----
-
-## Códigos HTTP aceptables
-
-Los siguientes códigos son considerados **PASS** (el servicio está vivo):
-
-`200, 201, 204, 301, 302, 400, 401, 403, 404, 405`
-
-Un timeout, `connection refused`, error DNS, o contenedor en estado no-`running` = **FAIL**.
-
----
+- Fecha/hora y resultado global.
+- Conteo smoke passed/failed.
+- Conteo functional pass/fail/blocked/skipped.
+- Tabla de los 5 smoke checks.
+- Tabla de functional E2E checks.
+- Snapshot de `docker ps`.
+- Estado de Neo4j.
+- Endpoints invocados y request bodies no sensibles.
+- Limitaciones reales por auth, seed data y alcance.
 
 ## Limitaciones
 
-| Limitación | Razón |
-|-----------|-------|
-| No cubre flujos autenticados completos | No existe seed data de usuarios por defecto; los tokens JWT/LDAP no pueden generarse automáticamente sin credenciales reales. |
-| Es una suite E2E smoke/operacional | El objetivo es evidencia de disponibilidad, no cobertura de regresión funcional. |
-| Kafka y Redis no se verifican directamente | Se infieren como saludables si los servicios dependientes (form-service, gateway-service, promotion-service) responden HTTP. |
-| Neo4j verificado por estado de contenedor | No se ejecutan queries Cypher; el health check de Docker es suficiente para evidencia smoke. |
-| notification-service no tiene check dedicado | Por decisión de alcance en esta versión no tiene check HTTP dedicado, a pesar de que su puerto 8082 sí está expuesto al host; se verifica indirectamente a través del stack. |
+- Los smoke checks validan disponibilidad real del stack, no logica profunda de negocio.
+- Los functional checks validan endpoints reales solo cuando se puede hacerlo sin credenciales inventadas ni seed data inexistente.
+- Flujos autenticados pueden quedar `BLOCKED_BY_AUTH` porque no hay usuarios/JWT seed reproducibles.
+- Flujos dependientes de data de negocio pueden quedar `SKIPPED_NO_SEED`.
+- Kafka y Redis se siguen validando indirectamente por endpoints dependientes.
+- Esto no reemplaza pruebas Java de integracion, seguridad, contratos ni performance.
+- Locust sigue pendiente para rendimiento.
 
----
+## Estructura
 
-## Estructura del directorio `e2e/`
-
-```
+```text
 e2e/
-├── README.md          ← Este archivo
-├── run-e2e.ps1        ← Script principal E2E (PowerShell)
-└── results/
-    ├── .gitkeep       ← Mantiene la carpeta en git
-    └── e2e-report.md  ← Generado al ejecutar la suite
+|-- README.md
+|-- run-e2e.ps1
+`-- results/
+    |-- .gitkeep
+    `-- e2e-report.md
 ```
 
----
-
-## Funciones del script
-
-| Función | Propósito |
-|---------|-----------|
-| `Assert-DockerContainerRunning` | Verifica vía `docker inspect` que el contenedor está en estado `running`. |
-| `Test-HttpEndpoint` | Hace `Invoke-WebRequest` al endpoint, maneja excepciones HTTP y de red, devuelve hashtable con resultado. |
-| `Write-Result` | Imprime el resultado en consola (coloreado) y lo registra en la lista global. |
-| `Write-MarkdownReport` | Genera el reporte Markdown final en `e2e/results/e2e-report.md`. |
-| `Get-DockerSummary` | Captura el output de `docker ps` para incluirlo en el reporte. |
-
----
-
-*CircleGuard E2E Suite v1.0.0 · Taller de Pruebas y Release 261*
+*CircleGuard E2E Suite v1.1.0 - Taller de Pruebas y Release 261*
