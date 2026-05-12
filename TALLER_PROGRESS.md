@@ -523,7 +523,78 @@ Limitaciones:
 - No cubre todavia flujos autenticados completos por falta de credenciales/JWT seed.
 - No valida Kafka/Redis con asserts profundos, solo disponibilidad indirecta.
 - No inventa certificados, usuarios ni ids de recuperacion.
-- Locust sigue pendiente para rendimiento.
+- La fase Locust de rendimiento quedo validada localmente con ejecuciones headless smoke y load, CSVs reales y `0` fallos.
+
+## 10.5. Fase pruebas - rendimiento con Locust
+
+Se valido el entorno de rendimiento en Windows y se ejecuto la suite `performance/locust/locustfile.py` contra el stack Docker Compose ya levantado en `localhost`. Esta fase se mantuvo dentro del alcance permitido, trabajando unicamente en `performance/locust/` y `TALLER_PROGRESS.md`, sin modificar codigo productivo, tests Java ni infraestructura de Docker/Jenkins/Kubernetes.
+
+Validacion de entorno realizada el 2026-05-11:
+
+```powershell
+python --version
+pip --version
+py --version
+py -m pip --version
+locust --version
+python -m locust --version
+```
+
+Resultado validado:
+
+- `python --version` -> `Python 3.12.0`
+- `pip --version` -> `pip 23.2.1`
+- `py --version` -> `Python 3.12.0`
+- `py -m pip --version` -> `pip 23.2.1`
+- `locust --version` -> `locust 2.32.6`
+- `python -m locust --version` -> `locust 2.32.6`
+
+Ejecuciones headless realizadas:
+
+```powershell
+locust -f performance/locust/locustfile.py --host http://localhost --headless -u 5 -r 1 -t 30s --csv performance/locust/results/circleguard-smoke
+locust -f performance/locust/locustfile.py --host http://localhost --headless -u 20 -r 5 -t 1m --csv performance/locust/results/circleguard-load
+```
+
+Artefactos generados:
+
+- `performance/locust/results/circleguard-smoke_stats.csv`
+- `performance/locust/results/circleguard-smoke_stats_history.csv`
+- `performance/locust/results/circleguard-smoke_failures.csv`
+- `performance/locust/results/circleguard-smoke_exceptions.csv`
+- `performance/locust/results/circleguard-load_stats.csv`
+- `performance/locust/results/circleguard-load_stats_history.csv`
+- `performance/locust/results/circleguard-load_failures.csv`
+- `performance/locust/results/circleguard-load_exceptions.csv`
+
+Resultados reales smoke:
+
+- Requests totales: `70`
+- Failures: `0`
+- Error rate: `0.00%`
+- Average response time agregada: `68.63 ms`
+- p50 agregada: `45 ms`
+- p95 agregada: `160 ms`
+- p99 agregada: `1600 ms`
+- Throughput agregado: `2.48 req/s`
+
+Resultados reales load:
+
+- Requests totales: `581`
+- Failures: `0`
+- Error rate: `0.00%`
+- Average response time agregada: `33.21 ms`
+- p50 agregada: `47 ms`
+- p95 agregada: `56 ms`
+- p99 agregada: `66 ms`
+- Throughput agregado: `9.78 req/s`
+
+Hallazgos:
+
+- No se observaron `5xx`, timeouts ni `connection refused`.
+- El unico outlier notable aparecio en el smoke sobre `promotion_health_smoke`, con maximo de `1631.39 ms`, elevando el p99 de esa corrida corta.
+- En la corrida de carga el comportamiento fue estable y sin repeticion de ese pico, quedando el maximo agregado en `88.81 ms`.
+- Los CSV de `failures` y `exceptions` quedaron sin eventos funcionales o de infraestructura.
 
 ## 11. Puntos del taller ya avanzados
 
@@ -553,16 +624,16 @@ Actualmente se consideran avanzados los siguientes puntos:
 - Archivado de reportes JUnit y artefactos del taller desde el pipeline base.
 - Manifests Kubernetes base creados para los seis microservicios seleccionados.
 - Middleware Kubernetes base creado para PostgreSQL, Redis, Neo4j, Kafka/Zookeeper y OpenLDAP.
+- Suite Locust de rendimiento ejecutada localmente con resultados reales y CSVs versionados en `performance/locust/results/`.
 
 ## 12. Puntos pendientes del taller
 
 Los pendientes principales para completar el taller son:
 
-- Locust.
 - Validación real en cluster Kubernetes.
 - Registry / Ingress / pipelines stage-master-release.
 - Documentacion final consolidada y video de entrega.
 
 ## 13. Proxima fase recomendada
 
-La siguiente fase recomendada es aprovechar la base Compose ya validada operativamente, el pipeline Jenkins base dev y estos nuevos manifests Kubernetes para evolucionar hacia un despliegue real de cluster con middleware, ingress y estrategia de publicacion de imagenes. En paralelo, sigue siendo conveniente continuar con pipelines de `stage` y `master` o `release`, pruebas E2E formales y escenarios de rendimiento con Locust. Con Compose, Jenkins y Kubernetes base ya documentados, el entorno queda mejor posicionado para avanzar hacia una historia de CI/CD y despliegue progresivo mas completa.
+La siguiente fase recomendada es aprovechar la base Compose ya validada operativamente, el pipeline Jenkins base dev, la evidencia E2E ya consolidada y esta nueva validacion de rendimiento con Locust para evolucionar hacia un despliegue real de cluster con middleware, ingress y estrategia de publicacion de imagenes. En paralelo, sigue siendo conveniente continuar con pipelines de `stage` y `master` o `release`, validacion real en Kubernetes y consolidacion final de la documentacion de entrega.
