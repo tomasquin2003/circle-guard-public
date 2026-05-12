@@ -55,11 +55,15 @@ Kafka expone dos formas de acceso:
 
 Los microservicios del archivo `docker-compose.app.yml` usan `kafka:29092`.
 
+Neo4j tiene un `healthcheck` basado en HTTP sobre `http://localhost:7474` porque el puerto Bolt puede tardar mas en quedar listo que el simple arranque del contenedor.
+
 ## Levantar middleware y aplicaciones
 
 ```powershell
 docker compose -f docker-compose.dev.yml -f docker-compose.app.yml up -d
 ```
+
+En particular, `promotion-service` ya no depende solo de que Neo4j haya arrancado como contenedor, sino de que Neo4j este `healthy` antes de iniciar.
 
 ## Inspeccionar logs
 
@@ -79,5 +83,6 @@ docker compose -f docker-compose.dev.yml -f docker-compose.app.yml logs -f gatew
 
 ## Limitaciones conocidas
 
-- `depends_on` solo ordena arranque; no garantiza readiness de PostgreSQL, Kafka, Neo4j, Redis u OpenLDAP.
+- `depends_on` con `service_started` solo ordena arranque; no garantiza readiness de PostgreSQL, Kafka, Redis u OpenLDAP.
+- Neo4j ahora usa `healthcheck` para reducir fallos de readiness en `promotion-service`, pero los demas servicios todavia pueden beneficiarse de healthchecks adicionales.
 - Los `healthcheck` y estrategias de espera pueden mejorarse mas adelante.

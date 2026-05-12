@@ -44,10 +44,14 @@ services:
       SPRING_DATA_REDIS_PORT: 6379
       SERVER_PORT: 8088
     depends_on:
-      - postgres
-      - neo4j
-      - kafka
-      - redis
+      postgres:
+        condition: service_started
+      neo4j:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      redis:
+        condition: service_started
 
   notification-service:
     image: circleguard-notification-service:dev
