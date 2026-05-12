@@ -459,11 +459,34 @@ Se implementaron y validaron exactamente 5 pruebas unitarias nuevas:
 - La corrida focalizada terminó en `BUILD SUCCESSFUL`.
 - Esta fase cubre el bloque de 5 pruebas unitarias nuevas de la rúbrica.
 
+## 10.3. Fase pruebas - 5 integraciones nuevas
+
+Se implementaron y validaron exactamente 5 pruebas de integración nuevas:
+
+1. `IdentityVaultControllerIntegrationTest.mapThenLookup_PersistsMapping_ResolvesIdentity_AndAuditsAccess`
+   - Valida `POST /api/v1/identities/map` + `GET /api/v1/identities/lookup/{id}`, persistencia real en H2, seguridad activa y auditoría Kafka.
+2. `HealthSurveyServiceIntegrationTest.submitSurvey_WithAttachment_PersistsPendingLegacyFieldsAndPublishesEvent`
+   - Valida encuesta con attachment en `PENDING`, campos legacy y publicación de `survey.submitted`.
+3. `CertificateValidationControllerIntegrationTest.pendingThenValidate_ListsPendingSurvey_UpdatesStatus_AndPublishesApprovalEvent`
+   - Valida `GET /api/v1/certificates/pending` y `POST /api/v1/certificates/{id}/validate`, cambio a `APPROVED` y publicación de `certificate.validated`.
+4. `QrValidationServiceRedisIntegrationTest.validateToken_WithRedisBackedStatuses_DistinguishesGreenFromRedAndInvalid`
+   - Valida Redis real con Testcontainers: `CLEAR` => `GREEN`, estado riesgoso => `RED`, y token expirado/malformado => inválido.
+5. `HealthStatusRecoveryIntegrationTest.recoverEndpoint_WithSecurity_TransitionsUserToRecovered_UpdatesRedis_AndPublishesStatusChange`
+   - Valida `POST /api/v1/health/recovery/{id}`, seguridad, estado `RECOVERED` en Neo4j, Redis con TTL y publicación `promotion.status.changed`.
+
+- No se modificó código productivo.
+- Se agregaron pruebas bajo `src/test`.
+- Se agregó `application-test.yml` en form-service para perfil de test.
+- Se agregó configuración Gradle de test en gateway-service para Testcontainers.
+- La suite agregada de los cuatro servicios terminó en `BUILD SUCCESSFUL` en `2m 51s`.
+- Esta fase cubre el bloque de 5 pruebas de integración nuevas de la rúbrica.
+
 ## 11. Puntos del taller ya avanzados
 
 Actualmente se consideran avanzados los siguientes puntos:
 
 - 5 pruebas unitarias nuevas implementadas y validadas.
+- 5 pruebas de integración nuevas implementadas y validadas.
 - Seleccion de un minimo de seis microservicios dentro del monorepo.
 - Estabilizacion de pruebas base unitarias e integracion en los servicios seleccionados.
 - Preparacion del repositorio para ejecucion automatizada en CI.
@@ -490,7 +513,6 @@ Actualmente se consideran avanzados los siguientes puntos:
 
 Los pendientes principales para completar el taller son:
 
-- 5 pruebas de integración nuevas.
 - E2E formal.
 - Locust.
 - Validación real en cluster Kubernetes.
