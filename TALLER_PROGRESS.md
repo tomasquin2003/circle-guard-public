@@ -218,7 +218,79 @@ docker-compose.dev.yml: the attribute version is obsolete, it will be ignored
 
 Es importante dejar explicito que esta fase no confirma todavia ejecucion real ni readiness completa. Hasta este punto solo se valido que la configuracion combinada es correcta y coherente; todavia no se ejecuto `docker compose up`.
 
-## 8. Puntos del taller ya avanzados
+## 8. Validacion operativa de Docker Compose
+
+Despues de la validacion estructural de Compose, se ejecuto por primera vez el stack combinado mediante:
+
+```powershell
+docker compose -f docker-compose.dev.yml -f docker-compose.app.yml up -d
+```
+
+El resultado inicial fue positivo para la mayor parte del entorno:
+
+- El middleware levanto correctamente.
+- Cinco de los seis microservicios quedaron arriba.
+- `promotion-service` fallo en el primer intento de arranque.
+
+El error raiz observado en esa primera ejecucion fue un rechazo de conexion hacia Neo4j:
+
+```text
+Connection refused: neo4j:7687
+```
+
+El diagnostico mostro que no se trataba de un problema de credenciales, URI ni DNS interno, sino de readiness. En Docker Compose, `depends_on` con `condition: service_started` solo garantiza que el contenedor de dependencia haya sido iniciado, pero no que el servicio interno ya este listo para aceptar conexiones. En este caso puntual, `promotion-service` intentaba usar Bolt en `neo4j:7687` antes de que Neo4j hubiera completado su inicializacion real.
+
+Para resolver el problema se aplico una correccion minima de Compose:
+
+- Se agrego un `healthcheck` a `neo4j` en `docker-compose.dev.yml`.
+- Se cambio la dependencia de `promotion-service` para que espere a `neo4j` con `condition: service_healthy`.
+- Se actualizo `docs/docker-compose.md` para documentar la diferencia entre arranque de contenedor y readiness efectiva.
+
+Despues de ese ajuste, se volvio a validar la configuracion con:
+
+```powershell
+docker compose -f docker-compose.dev.yml -f docker-compose.app.yml config
+```
+
+Resultado:
+
+```text
+Exit code 0
+```
+
+La recreacion puntual de `neo4j` y `promotion-service` permitio confirmar la secuencia esperada:
+
+- Neo4j paso a estado `Up ... (healthy)`.
+- Compose espero a que Neo4j estuviera healthy.
+- `promotion-service` arranco despues y permanecio `Up`.
+
+Los logs de Neo4j confirmaron readiness completa:
+
+- `Bolt enabled on 0.0.0.0:7687`
+- `Remote interface available at http://localhost:7474/`
+- `Started.`
+
+Los logs de `promotion-service` confirmaron arranque exitoso de Spring Boot:
+
+- `Tomcat started on port 8088`
+- `Started PromotionApplication`
+
+Ademas, la validacion HTTP:
+
+```powershell
+curl -I http://localhost:8088/swagger-ui/index.html
+```
+
+respondio `HTTP 404`, lo cual fue considerado aceptable en esta fase porque confirma que el servicio responde por HTTP aunque esa ruta especifica no exista o no este publicada.
+
+Tambien se observaron warnings no bloqueantes:
+
+- Flyway recomienda upgrade porque PostgreSQL 16.13 es mas nuevo que la version explicitamente soportada o testeada por esa version de Flyway.
+- Kafka puede registrar `MemberIdRequiredException` durante el proceso de coordinacion de consumidores, sin bloquear el arranque del servicio.
+
+Como resultado, esta fase confirma que el stack Compose ya no solo es valido a nivel de configuracion, sino tambien operativo localmente para el caso de `promotion-service` y su dependencia con Neo4j.
+
+## 9. Puntos del taller ya avanzados
 
 Actualmente se consideran avanzados los siguientes puntos:
 
@@ -232,15 +304,16 @@ Actualmente se consideran avanzados los siguientes puntos:
 - Docker Compose de apps creado para los seis microservicios seleccionados.
 - Middleware y apps componibles usando `docker-compose.dev.yml` y `docker-compose.app.yml`.
 - Listener Kafka interno y externo configurado para separar trafico entre contenedores y acceso desde host.
+- Compose ejecutado localmente con `docker compose up -d`.
+- Middleware y microservicios levantados localmente en Docker Compose.
+- Readiness de Neo4j corregido mediante `healthcheck`.
+- `promotion-service` validado operativo en Docker Compose despues del ajuste de readiness.
 - Base tecnica suficiente para comenzar la construccion de pipelines Jenkins.
 
-## 9. Puntos pendientes del taller
+## 10. Puntos pendientes del taller
 
 Los pendientes principales para completar el taller son:
 
-- Ejecutar `docker compose up` y validar el arranque real del middleware junto con las aplicaciones.
-- Revisar logs, readiness y health de los servicios dockerizados una vez levantados.
-- Healthchecks y definicion operativa de arranque para los servicios dockerizados.
 - Publicacion de imagenes en un registry para consumo desde CI/CD.
 - `Jenkinsfile` para ramas `dev`, `stage` y `master`.
 - Manifiestos Kubernetes.
@@ -251,13 +324,13 @@ Los pendientes principales para completar el taller son:
 
 Estado actual de pendientes relevantes:
 
-- La configuracion `docker-compose` ya es valida, pero todavia no se ha ejecutado `up`.
-- La validacion operativa de logs y healthchecks todavia no esta implementada.
-- Kubernetes todavia no esta implementado.
 - Jenkins todavia no esta implementado.
+- Kubernetes todavia no esta implementado.
+- E2E formal todavia no esta implementado.
 - Locust todavia no esta implementado.
-- E2E todavia no esta implementado.
+- Release Notes automaticas todavia no estan implementadas.
+- Documentacion final consolidada y video de entrega todavia no estan implementados.
 
-## 10. Proxima fase recomendada
+## 11. Proxima fase recomendada
 
-La siguiente fase recomendada es ejecutar el stack con `docker compose up`, inspeccionar logs y comportamiento de arranque, y luego incorporar healthchecks o mecanismos de espera donde sea necesario. Una vez validado ese entorno de ejecucion, el siguiente paso natural es integrar esta base en Jenkins, definir publicacion de imagenes y continuar con Kubernetes, E2E y escenarios de rendimiento con Locust.
+La siguiente fase recomendada es aprovechar esta base Compose ya validada operativamente para integrarla en Jenkins, definir publicacion de imagenes y continuar con manifiestos Kubernetes, pruebas E2E formales y escenarios de rendimiento con Locust. Con el problema de readiness de Neo4j ya resuelto, el entorno local queda en mejor posicion para servir como referencia de CI/CD y despliegue progresivo.
