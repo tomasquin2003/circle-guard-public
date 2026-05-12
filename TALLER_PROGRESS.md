@@ -313,6 +313,7 @@ Las etapas incluidas en el pipeline base son:
 - `Build Boot JARs`
 - `Build Docker Images`
 - `Validate Docker Compose Config`
+- `Generate Release Notes`
 - `Archive Test Reports`
 
 El pipeline trabaja especificamente sobre los seis microservicios seleccionados del taller:
@@ -332,19 +333,29 @@ En esta fase se automatizaron los siguientes puntos:
 - Construccion de artefactos `bootJar`.
 - Construccion de imagenes Docker locales con tag `:dev` usando `Dockerfile.service`.
 - Validacion estructural de `docker-compose.dev.yml` y `docker-compose.app.yml` mediante `docker compose config`.
+- Generacion automatica de `release-notes/RELEASE_NOTES.md` como artefacto Jenkins con metadatos del build, servicios incluidos, validaciones ejecutadas y ultimos 10 commits.
 - Archivado de reportes JUnit.
-- Archivado de JARs generados y documentacion relevante del taller.
+- Archivado de JARs generados, release notes y documentacion relevante del taller.
 
 Adicionalmente, se creo `docs/jenkins.md` para dejar documentado:
 
 - El objetivo del pipeline.
 - Los prerequisitos del agente Jenkins.
 - La descripcion de stages.
+- El contenido de las release notes automaticas archivadas por Jenkins.
 - Los comandos manuales equivalentes.
 - Las limitaciones actuales.
 - La evolucion recomendada para siguientes fases.
 
 Es importante dejar explicito que en esta etapa no se ejecuto Jenkins en un servidor real ni se valido un job remoto end-to-end. Lo que si quedo completado fue la creacion del `Jenkinsfile`, su revision base y la documentacion necesaria para usarlo como punto de partida del ambiente dev.
+
+### Release Notes automaticas como artefacto Jenkins
+
+Como extension del pipeline base dev, se agrego una etapa `Generate Release Notes` ubicada despues de la validacion de Compose y antes del archivado final. Esta etapa genera `release-notes/RELEASE_NOTES.md` dentro del workspace del job y lo publica como artefacto del build.
+
+La intencion de esta salida es dejar una evidencia tecnica resumida de cada ejecucion del pipeline sin convertirla todavia en una release formal. El archivo incluye numero de build, nombre del job, rama, commit corto, fecha de generacion, lista de servicios considerados, validaciones realizadas por el pipeline y los ultimos 10 commits del repositorio.
+
+Se deja explicito que esta automatizacion no crea tags Git, no crea GitHub Releases, no hace versionado oficial y no publica artefactos en un registry. Su alcance actual es documental y de trazabilidad dentro de Jenkins.
 
 ## 10. Puntos del taller ya avanzados
 
@@ -367,6 +378,7 @@ Actualmente se consideran avanzados los siguientes puntos:
 - `Jenkinsfile` base creado para ambiente dev.
 - Pipeline dev documentado en `docs/jenkins.md`.
 - Automatizacion de tests, `bootJar`, build de imagenes y validacion Compose en Jenkins.
+- Generacion automatica de Release Notes como artefacto del pipeline Jenkins.
 - Archivado de reportes JUnit y artefactos del taller desde el pipeline base.
 
 ## 11. Puntos pendientes del taller
@@ -375,20 +387,22 @@ Los pendientes principales para completar el taller son:
 
 - Pipeline base dev creado, pero falta evolucionar Jenkins para flujos de `stage`, `master` o `release`.
 - Publicacion de imagenes en un registry para consumo desde CI/CD.
+- Tags oficiales de release.
+- Publicacion formal de releases.
 - Manifiestos Kubernetes.
 - Pruebas E2E.
 - Escenarios de rendimiento con Locust.
-- Release Notes automaticas.
 - Documentacion final consolidada y video de entrega.
 
 Estado actual de pendientes relevantes:
 
 - Existe una base Jenkins para dev, pero todavia no estan implementados los pipelines para `stage`, `master` o `release`.
 - La publicacion de imagenes a registry todavia no esta implementada.
+- Los tags oficiales todavia no estan implementados.
+- La publicacion formal de releases todavia no esta implementada.
 - Kubernetes todavia no esta implementado.
 - E2E formal todavia no esta implementado.
 - Locust todavia no esta implementado.
-- Release Notes automaticas todavia no estan implementadas.
 - Documentacion final consolidada y video de entrega todavia no estan implementados.
 
 ## 12. Proxima fase recomendada

@@ -19,6 +19,46 @@ def runCommand(String command) {
     }
 }
 
+def runCommandOutput(String command) {
+    if (isUnix()) {
+        return sh(script: command, returnStdout: true).trim()
+    }
+
+    return bat(script: "@echo off\r\n${command}", returnStdout: true).trim()
+}
+
+def generateReleaseNotes() {
+    def branchName = env.BRANCH_NAME ?: env.GIT_BRANCH ?: runCommandOutput('git rev-parse --abbrev-ref HEAD')
+    def shortCommit = runCommandOutput('git rev-parse --short HEAD')
+    def generatedAt = new Date().format("yyyy-MM-dd HH:mm:ss 'UTC'", TimeZone.getTimeZone('UTC'))
+    def recentCommits = runCommandOutput('git log --pretty=format:"- %h %s" -10')
+    def releaseNotes = """# Release Notes
+
+## Build metadata
+- Build number: ${env.BUILD_NUMBER ?: 'N/A'}
+- Job name: ${env.JOB_NAME ?: 'N/A'}
+- Branch: ${branchName}
+- Commit corto: ${shortCommit}
+- Fecha/hora de generacion: ${generatedAt}
+
+## Selected services
+${selectedServices.collect { "- ${it}" }.join('\n')}
+
+## Validation performed
+- Service tests
+- bootJar
+- Docker image build
+- Docker Compose config validation
+
+## Recent commits
+${recentCommits}
+"""
+
+    dir('release-notes') {
+        writeFile file: 'RELEASE_NOTES.md', text: releaseNotes
+    }
+}
+
 pipeline {
     agent any
 
@@ -86,10 +126,18 @@ pipeline {
             }
         }
 
+        stage('Generate Release Notes') {
+            steps {
+                script {
+                    generateReleaseNotes()
+                }
+            }
+        }
+
         stage('Archive Test Reports') {
             steps {
                 junit allowEmptyResults: true, testResults: 'services/**/build/test-results/test/*.xml'
-                archiveArtifacts allowEmptyArchive: true, artifacts: 'services/**/build/libs/*.jar, docs/*.md, TALLER_PROGRESS.md'
+                archiveArtifacts allowEmptyArchive: true, artifacts: 'services/**/build/libs/*.jar, docs/*.md, release-notes/*.md, TALLER_PROGRESS.md'
             }
         }
     }
@@ -97,13 +145,13 @@ pipeline {
     post {
         always {
             junit allowEmptyResults: true, testResults: 'services/**/build/test-results/test/*.xml'
-            archiveArtifacts allowEmptyArchive: true, artifacts: 'services/**/build/libs/*.jar, docs/*.md, TALLER_PROGRESS.md'
+            archiveArtifacts allowEmptyArchive: true, artifacts: 'services/**/build/libs/*.jar, docs/*.md, release-notes/*.md, TALLER_PROGRESS.md'
         }
         success {
-            echo 'Pipeline base dev completado: tests, bootJar, imagenes Docker locales y validacion de Docker Compose ejecutados con exito.'
+            echo 'Pipeline base dev completado: tests, bootJar, imagenes Docker locales, validacion de Docker Compose y release notes ejecutados con exito.'
         }
         failure {
-            echo 'Pipeline base dev fallido. Revisar la etapa que fallo y confirmar Java 21, Gradle Wrapper y acceso a Docker en el agente Jenkins.'
+            echo 'Pipeline base dev fallido. Revisar la etapa que fallo y confirmar Java 21, Gradle Wrapper, Git y acceso a Docker en el agente Jenkins.'
         }
     }
 }

@@ -8,6 +8,7 @@ Este documento describe el `Jenkinsfile` base para ambiente dev del repositorio 
 2. `bootJar`
 3. `docker build`
 4. `docker compose config`
+5. `Generate Release Notes`
 
 La intencion es dejar una base clara y documentable para el taller, sin deploy real, sin registry y sin Kubernetes todavia.
 
@@ -105,13 +106,32 @@ docker compose -f docker-compose.dev.yml -f docker-compose.app.yml config
 
 En esta fase no se ejecuta `docker compose up`. Solo se valida la configuracion combinada.
 
-### 7. `Archive Test Reports`
+### 7. `Generate Release Notes`
+
+Genera el archivo `release-notes/RELEASE_NOTES.md` como artefacto del pipeline Jenkins. Estas release notes son tecnicas y automaticas; no representan todavia una release oficial del producto.
+
+El contenido minimo generado incluye:
+
+- Metadatos del build: numero de build, nombre del job, rama, commit corto y fecha/hora de generacion.
+- Los seis microservicios seleccionados en el taller.
+- Las validaciones ejecutadas por el pipeline base: tests, `bootJar`, `docker build` y `docker compose config`.
+- Los ultimos 10 commits del repositorio usando `git log --pretty=format:"- %h %s" -10`.
+
+Importante:
+
+- Estas release notes se archivan como evidencia del pipeline Jenkins.
+- Todavia no se crean tags Git.
+- Todavia no se crean GitHub Releases.
+- Todavia no se publica una release oficial o formal.
+
+### 8. `Archive Test Reports`
 
 Publica reportes JUnit y archiva artefactos utiles del taller:
 
 - `services/**/build/test-results/test/*.xml`
 - `services/**/build/libs/*.jar`
 - `docs/*.md`
+- `release-notes/*.md`
 - `TALLER_PROGRESS.md`
 
 Ademas de este stage, el `post { always { ... } }` repite la publicacion para intentar conservar evidencia incluso si una etapa previa falla.
@@ -172,16 +192,19 @@ docker compose -f docker-compose.dev.yml -f docker-compose.app.yml config
 
 - No publica imagenes a un Docker registry.
 - No despliega a Kubernetes.
-- No genera Release Notes automaticamente todavia.
 - No ejecuta pruebas E2E todavia.
 - No ejecuta escenarios Locust todavia.
 - No hace `docker compose up` ni despliegue real.
+- No crea tags Git todavia.
+- No crea GitHub Releases todavia.
+- No publica releases oficiales todavia.
 
 ## Proxima evolucion recomendada
 
 - Pipeline para rama `stage`
 - Pipeline para `master` o `release`
 - Publicacion de imagenes a registry
-- Generacion automatica de Release Notes
+- Tags y versionado formal de release
+- GitHub Releases o equivalente
 - Despliegue sobre Kubernetes
 - Ejecucion de pruebas E2E y rendimiento como etapas separadas
