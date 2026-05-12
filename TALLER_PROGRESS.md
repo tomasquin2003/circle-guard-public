@@ -1,8 +1,8 @@
-# Taller de pruebas y release 261 - Progreso técnico
+# Taller de pruebas y release 261 - Progreso tecnico
 
 ## 1. Objetivo del taller
 
-El objetivo del taller es preparar una base técnica reproducible para el ciclo de pruebas y release de un conjunto de microservicios del monorepo `circle-guard-public`. Esto incluye la configuración de pipelines para al menos seis servicios, la estabilización y ejecución de pruebas unitarias, de integración, E2E y de rendimiento, la preparación de empaquetado con Docker, el despliegue sobre Kubernetes, la generación de release notes y la documentación del proceso técnico realizado.
+El objetivo del taller es preparar una base tecnica reproducible para el ciclo de pruebas y release de un conjunto de microservicios del monorepo `circle-guard-public`. Esto incluye la configuracion de pipelines para al menos seis servicios, la estabilizacion y ejecucion de pruebas unitarias, de integracion, E2E y de rendimiento, la preparacion de empaquetado con Docker, el despliegue sobre Kubernetes, la generacion de release notes y la documentacion del proceso tecnico realizado.
 
 ## 2. Microservicios seleccionados
 
@@ -15,89 +15,89 @@ Se seleccionaron los siguientes seis microservicios:
 5. `circleguard-form-service`
 6. `circleguard-gateway-service`
 
-La selección se hizo porque cubre flujos representativos de autenticación, identidad, promoción de estados de riesgo, notificaciones, captura de formularios y validación de acceso. En conjunto, estos servicios ejercitan distintos tipos de dependencias técnicas del monorepo, incluyendo Spring Security, JPA, Kafka, Redis, Neo4j y pruebas con contexto Spring completo, lo que los hace adecuados para preparar pipelines y despliegues realistas.
+La seleccion se hizo porque cubre flujos representativos de autenticacion, identidad, promocion de estados de riesgo, notificaciones, captura de formularios y validacion de acceso. En conjunto, estos servicios ejercitan distintos tipos de dependencias tecnicas del monorepo, incluyendo Spring Security, JPA, Kafka, Redis, Neo4j y pruebas con contexto Spring completo, lo que los hace adecuados para preparar pipelines y despliegues realistas.
 
 ## 3. Estado inicial encontrado
 
-Durante la revisión inicial se encontraron los siguientes problemas:
+Durante la revision inicial se encontraron los siguientes problemas:
 
-- El entorno local no estaba alineado con la versión requerida por el proyecto. Se identificó una diferencia entre JDK 17 y Java 21, y fue necesario estabilizar la ejecución con Java 21.
-- `circleguard-identity-service:test` fallaba por configuración JWT de prueba insuficiente o débil, lo que impedía levantar correctamente el contexto de test bajo Spring Security.
+- El entorno local no estaba alineado con la version requerida por el proyecto. Se identifico una diferencia entre JDK 17 y Java 21, y fue necesario estabilizar la ejecucion con Java 21.
+- `circleguard-identity-service:test` fallaba por configuracion JWT de prueba insuficiente o debil, lo que impedia levantar correctamente el contexto de test bajo Spring Security.
 - `circleguard-promotion-service` presentaba fallos en `HealthStatusControllerTest` porque los tests estaban simulando autoridades incompatibles con `hasRole(...)` en Spring Security.
 - `circleguard-form-service` ejecutaba `AttachmentControllerTest` con `@SpringBootTest`, levantando un contexto completo innecesario para una prueba de endpoint simple y arrastrando dependencias de PostgreSQL, Kafka y Flyway.
-- Varios tests de integración y rendimiento de `circleguard-promotion-service` dependían de PostgreSQL y Redis locales en `localhost`, lo que impedía su ejecución reproducible en CI/Jenkins.
+- Varios tests de integracion y rendimiento de `circleguard-promotion-service` dependian de PostgreSQL y Redis locales en `localhost`, lo que impedia su ejecucion reproducible en CI/Jenkins.
 
 ## 4. Cambios realizados
 
 ### `services/circleguard-identity-service/src/test/resources/application.yml`
 
 Problema:
-Los tests del servicio de identidad fallaban por una configuración JWT de prueba que no cumplía los requisitos mínimos de longitud/fortaleza esperados por la librería de tokens.
+Los tests del servicio de identidad fallaban por una configuracion JWT de prueba que no cumplia los requisitos minimos de longitud o fortaleza esperados por la libreria de tokens.
 
-Solución aplicada:
-Se ajustó la configuración de test para incluir un `jwt.secret` adecuado para ejecución bajo pruebas.
+Solucion aplicada:
+Se ajusto la configuracion de test para incluir un `jwt.secret` adecuado para ejecucion bajo pruebas.
 
-Por qué es adecuada para CI/Jenkins:
-Evita depender de configuraciones externas o secretos locales débiles y permite que el contexto de pruebas se inicialice de forma determinista en entornos automatizados.
+Por que es adecuada para CI/Jenkins:
+Evita depender de configuraciones externas o secretos locales debiles y permite que el contexto de pruebas se inicialice de forma determinista en entornos automatizados.
 
 ### `services/circleguard-promotion-service/src/test/java/com/circleguard/promotion/controller/HealthStatusControllerTest.java`
 
 Problema:
 Los tests autorizados usaban `@WithMockUser(authorities = "...")` mientras el controller validaba acceso con `@PreAuthorize("hasRole('HEALTH_CENTER')")`. Esto provocaba respuestas HTTP 403 en lugar de 200.
 
-Solución aplicada:
-Se reemplazó el uso de `authorities` por `roles` en los mocks de usuario para que Spring Security genere internamente autoridades con prefijo `ROLE_`.
+Solucion aplicada:
+Se reemplazo el uso de `authorities` por `roles` en los mocks de usuario para que Spring Security genere internamente autoridades con prefijo `ROLE_`.
 
-Por qué es adecuada para CI/Jenkins:
-Hace que la simulación de seguridad en test refleje con precisión el comportamiento real del framework y evita falsos negativos en pipelines.
+Por que es adecuada para CI/Jenkins:
+Hace que la simulacion de seguridad en test refleje con precision el comportamiento real del framework y evita falsos negativos en pipelines.
 
 ### `services/circleguard-form-service/src/test/java/com/circleguard/form/controller/AttachmentControllerTest.java`
 
 Problema:
-La prueba levantaba todo el contexto con `@SpringBootTest` para validar un endpoint que solo delega a un servicio de almacenamiento, provocando dependencias innecesarias con base de datos y mensajería.
+La prueba levantaba todo el contexto con `@SpringBootTest` para validar un endpoint que solo delega a un servicio de almacenamiento, provocando dependencias innecesarias con base de datos y mensajeria.
 
-Solución aplicada:
-La prueba fue convertida a `@WebMvcTest(AttachmentController.class)` y se mockeó `StorageService`.
+Solucion aplicada:
+La prueba fue convertida a `@WebMvcTest(AttachmentController.class)` y se mockeo `StorageService`.
 
-Por qué es adecuada para CI/Jenkins:
-Reduce tiempo de ejecución, elimina acoplamiento con infraestructura innecesaria y deja una prueba más estable y predecible en entornos de integración continua.
+Por que es adecuada para CI/Jenkins:
+Reduce tiempo de ejecucion, elimina acoplamiento con infraestructura innecesaria y deja una prueba mas estable y predecible en entornos de integracion continua.
 
 ### `services/circleguard-promotion-service/src/test/java/com/circleguard/promotion/performance/PromotionPerformanceTest.java`
 
 Problema:
-El test de rendimiento dependía inicialmente de PostgreSQL y Redis locales. Además, una vez estabilizada la infraestructura con Testcontainers, el umbral de 1000 ms resultó frágil para ejecución local/CI sobre contenedores efímeros.
+El test de rendimiento dependia inicialmente de PostgreSQL y Redis locales. Ademas, una vez estabilizada la infraestructura con Testcontainers, el umbral de 1000 ms resulto fragil para ejecucion local o CI sobre contenedores efimeros.
 
-Solución aplicada:
-Se agregó `PostgreSQLContainer<?>` para datasource de prueba, `GenericContainer<?>` para Redis y se registraron dinámicamente `spring.datasource.*` y `spring.data.redis.*` mediante `@DynamicPropertySource`. También se reemplazó el umbral hardcoded por una constante descriptiva de 2000 ms orientada a local/CI.
+Solucion aplicada:
+Se agrego `PostgreSQLContainer<?>` para datasource de prueba, `GenericContainer<?>` para Redis y se registraron dinamicamente `spring.datasource.*` y `spring.data.redis.*` mediante `@DynamicPropertySource`. Tambien se reemplazo el umbral hardcoded por una constante descriptiva de 2000 ms orientada a local o CI.
 
-Por qué es adecuada para CI/Jenkins:
+Por que es adecuada para CI/Jenkins:
 El test deja de depender de servicios locales y se vuelve reproducible en agentes de CI. El umbral ajustado sigue validando comportamiento de rendimiento sin introducir fragilidad artificial por latencia adicional de Testcontainers.
 
 ### `services/circleguard-promotion-service/src/test/java/com/circleguard/promotion/service/AdministrativeCorrectionTest.java`
 
 Problema:
-Este test de integración ya utilizaba Neo4j y Redis en Testcontainers, pero todavía dependía de PostgreSQL local para JPA/Flyway.
+Este test de integracion ya utilizaba Neo4j y Redis en Testcontainers, pero todavia dependia de PostgreSQL local para JPA y Flyway.
 
-Solución aplicada:
-Se agregó un `PostgreSQLContainer<?>` y se registraron dinámicamente `spring.datasource.url`, `spring.datasource.username`, `spring.datasource.password` y `spring.datasource.driver-class-name`.
+Solucion aplicada:
+Se agrego un `PostgreSQLContainer<?>` y se registraron dinamicamente `spring.datasource.url`, `spring.datasource.username`, `spring.datasource.password` y `spring.datasource.driver-class-name`.
 
-Por qué es adecuada para CI/Jenkins:
-Permite que el contexto Spring completo, incluyendo Flyway y JPA, levante una base PostgreSQL efímera y aislada, sin suposiciones sobre la máquina del agente.
+Por que es adecuada para CI/Jenkins:
+Permite que el contexto Spring completo, incluyendo Flyway y JPA, levante una base PostgreSQL efimera y aislada, sin suposiciones sobre la maquina del agente.
 
 ### `services/circleguard-promotion-service/src/test/java/com/circleguard/promotion/service/HealthStatusReevaluationTest.java`
 
 Problema:
-El test dependía inicialmente de Neo4j en Testcontainers, pero seguía intentando conectarse a PostgreSQL y Redis locales.
+El test dependia inicialmente de Neo4j en Testcontainers, pero seguia intentando conectarse a PostgreSQL y Redis locales.
 
-Solución aplicada:
-Se agregó `PostgreSQLContainer<?>` para datasource y `GenericContainer<?>` para Redis, registrando ambas configuraciones dinámicamente con `@DynamicPropertySource`.
+Solucion aplicada:
+Se agrego `PostgreSQLContainer<?>` para datasource y `GenericContainer<?>` para Redis, registrando ambas configuraciones dinamicamente con `@DynamicPropertySource`.
 
-Por qué es adecuada para CI/Jenkins:
-Completa la aislación de infraestructura del test y garantiza que los flujos de reevaluación de estado puedan ejecutarse en CI sin depender de servicios locales instalados previamente.
+Por que es adecuada para CI/Jenkins:
+Completa la aislacion de infraestructura del test y garantiza que los flujos de reevaluacion de estado puedan ejecutarse en CI sin depender de servicios locales instalados previamente.
 
-## 5. Validación realizada
+## 5. Validacion realizada
 
-Se utilizaron los siguientes comandos de validación:
+Se utilizaron los siguientes comandos de validacion:
 
 ```powershell
 .\gradlew.bat --version
@@ -111,29 +111,79 @@ Resultado validado:
 BUILD SUCCESSFUL
 ```
 
-## 6. Puntos del taller ya avanzados
+## 6. Fase Docker - empaquetado de microservicios
+
+En esta fase se preparo una base reproducible de dockerizacion para los seis microservicios seleccionados del monorepo. Como resultado de esta etapa se crearon o ajustaron los siguientes archivos:
+
+- `Dockerfile.service`
+- `.dockerignore`
+- `docs/dockerization.md`
+
+La decision principal fue utilizar un Dockerfile parametrizable en lugar de mantener un Dockerfile duplicado por cada microservicio. Esto permite reutilizar la misma receta de empaquetado para `circleguard-auth-service`, `circleguard-identity-service`, `circleguard-promotion-service`, `circleguard-notification-service`, `circleguard-form-service` y `circleguard-gateway-service`, variando unicamente el valor de `SERVICE_NAME` durante el `docker build`. La aproximacion reduce duplicacion, evita drift entre servicios y deja una base mas limpia para Jenkins.
+
+Inicialmente se intento una estrategia multi-stage en la que Docker ejecutaba `./gradlew :services:${SERVICE_NAME}:bootJar --no-daemon` dentro del contenedor. Ese enfoque fallo por una dependencia de red del entorno de build: el Gradle Wrapper intento descargar `gradle-8.14-bin.zip`, redirigido a `release-assets.githubusercontent.com`, y el contenedor no pudo resolver ese host. Debido a que el problema no estaba en el codigo ni en los microservicios, se cambio a una estrategia runtime-only mas adecuada para el taller y para CI.
+
+La estrategia finalmente validada fue separar responsabilidades de esta forma:
+
+1. Gradle o Jenkins generan primero el artefacto con `bootJar`.
+2. Docker empaqueta unicamente el JAR ya construido.
+
+Este cambio deja una responsabilidad clara entre construccion de artefactos y empaquetado de imagen. En Jenkins esto es conveniente porque el pipeline puede ejecutar pruebas, construir `bootJar` y solo despues construir la imagen Docker, sin depender de descargas de Gradle dentro del contenedor.
+
+Los comandos validados para la fase inicial fueron:
+
+```powershell
+.\gradlew.bat :services:circleguard-auth-service:bootJar --console=plain
+docker build -f Dockerfile.service --build-arg SERVICE_NAME=circleguard-auth-service -t circleguard-auth-service:dev .
+
+.\gradlew.bat :services:circleguard-identity-service:bootJar --console=plain
+docker build -f Dockerfile.service --build-arg SERVICE_NAME=circleguard-identity-service -t circleguard-identity-service:dev .
+```
+
+Ademas, se valido exitosamente el mismo flujo para:
+
+- `circleguard-promotion-service`
+- `circleguard-notification-service`
+- `circleguard-form-service`
+- `circleguard-gateway-service`
+
+Resultado validado:
+Se construyeron imagenes Docker locales exitosamente para los seis microservicios seleccionados usando la estrategia `bootJar -> docker build`.
+
+## 7. Puntos del taller ya avanzados
 
 Actualmente se consideran avanzados los siguientes puntos:
 
-- Selección de un mínimo de seis microservicios dentro del monorepo.
-- Estabilización de pruebas base unitarias e integración en los servicios seleccionados.
-- Preparación del repositorio para ejecución automatizada en CI.
-- Uso de Testcontainers para hacer reproducibles los tests de integración.
-- Base técnica suficiente para comenzar la construcción de pipelines Jenkins.
+- Seleccion de un minimo de seis microservicios dentro del monorepo.
+- Estabilizacion de pruebas base unitarias e integracion en los servicios seleccionados.
+- Preparacion del repositorio para ejecucion automatizada en CI.
+- Uso de Testcontainers para hacer reproducibles los tests de integracion.
+- Dockerfile parametrizable creado para empaquetar microservicios Spring Boot desde la raiz del monorepo.
+- Imagenes Docker locales construidas para los seis servicios seleccionados.
+- Documentacion de dockerizacion creada para soportar la siguiente fase de integracion con Jenkins.
+- Base tecnica suficiente para comenzar la construccion de pipelines Jenkins.
 
-## 7. Puntos pendientes del taller
+## 8. Puntos pendientes del taller
 
 Los pendientes principales para completar el taller son:
 
-- Dockerfiles por microservicio.
-- `docker-compose` con servicios de aplicación para ambiente de desarrollo.
+- `docker-compose` con servicios de aplicacion para ambiente de desarrollo.
+- Healthchecks y definicion operativa de arranque para los servicios dockerizados.
+- Publicacion de imagenes en un registry para consumo desde CI/CD.
 - `Jenkinsfile` para ramas `dev`, `stage` y `master`.
 - Manifiestos Kubernetes.
 - Pruebas E2E.
 - Escenarios de rendimiento con Locust.
-- Release Notes automáticas.
-- Documentación final consolidada y video de entrega.
+- Release Notes automaticas.
+- Documentacion final consolidada y video de entrega.
 
-## 8. Próxima fase recomendada
+Estado actual de pendientes relevantes:
 
-La siguiente fase recomendada es crear Dockerfiles para los seis microservicios seleccionados y preparar un `docker-compose` de ambiente `dev`. Ese paso permitirá pasar de la estabilización de pruebas a una base concreta de empaquetado y orquestación local, necesaria para luego construir pipelines Jenkins, despliegues Kubernetes y automatización de release.
+- `docker-compose` todavia no esta implementado.
+- Kubernetes todavia no esta implementado.
+- Jenkins todavia no esta implementado.
+- Locust todavia no esta implementado.
+
+## 9. Proxima fase recomendada
+
+La siguiente fase recomendada es preparar un `docker-compose` de ambiente `dev` sobre la base del `Dockerfile.service` ya validado, incorporar healthchecks y definir la publicacion de imagenes para luego integrarla en Jenkins. Ese paso permitira pasar de la estabilizacion de pruebas y el empaquetado local a una base concreta de orquestacion, CI/CD y despliegue progresivo.
