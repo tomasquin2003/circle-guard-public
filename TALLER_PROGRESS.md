@@ -681,3 +681,16 @@ Limitaciones que se mantienen sin inventar evidencia:
 - No se agregaron credenciales, JWTs ni seed data artificial.
 - Los E2E siguen documentando limitaciones reales: algunos checks son smoke/reachability, `Identity map/lookup` puede quedar bloqueado por auth y `Promotion recovery` requiere seed data/JWT validos.
 - El documento final consolidado, video de entrega y zip final siguen pendientes como entregables academicos.
+
+## Fase Kubernetes - validación local en Docker Desktop
+- **Fecha:** May 14, 2026
+- **Contexto:** docker-desktop
+- **Correcciones aplicadas:
+  - `enableServiceLinks: false` en Neo4j.
+  - `enableServiceLinks: false` en Kafka.
+- **Resultado de middleware:** COMPLETO. Todos los pods y dependencias en 1/1 Running.
+- **Resultado de microservicios:** PARCIAL. Muchos microservicios levantaron y son accesibles HTTP, pero identity-service y promotion-service fallan liveness constantmente.
+- **Estado final:** PARCIAL
+- **Limitaciones reales:** La inicialización de Spring Boot masiva excede los delays estrictos definidos en los probes.
+- **Comandos principales ejecutados:** kubectl apply -f k8s/dev/*, kubectl get pods -n circleguard-dev, kubectl port-forward ... 
+
