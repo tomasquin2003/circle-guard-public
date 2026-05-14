@@ -22,9 +22,9 @@ Hay evidencia fuerte de pruebas Java: los metodos nuevos existen bajo `services/
 | Dockerfile o estrategia Docker funcional | COMPLETO | `Dockerfile.service` parametrizado con `SERVICE_NAME`; `docs/dockerization.md`. | No se encontro artefacto de build Docker versionado, pero la estrategia y comandos estan documentados. |
 | Docker Compose para dev | COMPLETO | `docker-compose.dev.yml`, `docker-compose.app.yml`, `docs/docker-compose.md`, `e2e/results/e2e-report.md` con snapshot de contenedores arriba. | Algunos healthchecks/readiness siguen pendientes salvo Neo4j. |
 | Kubernetes configurado o manifests preparados | PARCIAL | `k8s/dev/*.yaml`, `k8s/README.md`. | `k8s/README.md` indica que no hay validacion en cluster real; solo dry-run recomendado. |
-| Pipeline dev con build, tests, package y validacion/deploy | PARCIAL | `Jenkinsfile` ejecuta tests, `bootJar`, `docker build`, `docker compose config`, release notes. | No despliega realmente; no hay evidencia de job Jenkins ejecutado. |
+| Pipeline dev con build, tests, package y validacion/deploy | PARCIAL | `Jenkinsfile` ejecuta tests, `bootJar`, `docker build`, `docker compose config`, Kubernetes dry-run, E2E, Locust smoke y release notes. | No despliega realmente; no hay evidencia de job Jenkins ejecutado. |
 | Pipeline stage con pruebas sobre Kubernetes | PARCIAL | `Jenkinsfile.stage` incluye tests, build, imagenes, `kubectl apply --dry-run=client`, deploy parametrizado, E2E. | `DEPLOY_TO_K8S=false` por defecto; sin evidencia de app desplegada y probada en Kubernetes real. |
-| Pipeline master con build, unit tests, system tests, deploy Kubernetes y release notes | PARCIAL | `Jenkinsfile.master` incluye full test suite, Docker, Compose, K8s dry-run, E2E, Locust smoke, deploy parametrizado y release notes automaticas. | Deploy real deshabilitado por defecto; no existe `release-notes/RELEASE_NOTES.md` versionado ni evidencia de Jenkins real. |
+| Pipeline master con build, unit tests, system tests, deploy Kubernetes y release notes | PARCIAL | `Jenkinsfile` genera release notes con commit/rama/servicios/validaciones; `Jenkinsfile.master` incluye full test suite, Docker, Compose, K8s dry-run, E2E, Locust smoke, deploy parametrizado y release notes automaticas. | Deploy real deshabilitado por defecto; no existe `release-notes/RELEASE_NOTES.md` versionado ni evidencia de Jenkins real. |
 | 5 pruebas unitarias nuevas | COMPLETO | Metodos y XMLs listados en seccion 3. | La auditoria valida archivos y XMLs existentes; no reejecuto Gradle. |
 | 5 pruebas de integracion nuevas | COMPLETO | Metodos y XMLs listados en seccion 4. | La auditoria valida archivos y XMLs existentes; no reejecuto Gradle. |
 | 5 pruebas E2E nuevas | PARCIAL | `e2e/run-e2e.ps1`, `e2e/results/e2e-report.md`, `e2e/README.md`. | Solo 2 functional PASS; 5 smoke son reachability. Riesgo: no son 5 flujos funcionales completos. |
@@ -127,7 +127,7 @@ Metricas agregadas load, fuente `performance/locust/results/circleguard-load_sta
 - p99: `66 ms`
 - Throughput: `9.78 req/s`
 
-Riesgo documental: `e2e/results/e2e-report.md` y `e2e/README.md` todavia dicen que Locust esta pendiente, lo cual contradice `performance/locust/README.md` y los CSVs existentes.
+Riesgo documental: `e2e/results/e2e-report.md` fue actualizado para remitir a `performance/locust/`; `e2e/README.md` aun contiene una mencion historica de Locust pendiente.
 
 ## 7. Estado de Jenkins dev/stage/master
 
@@ -148,14 +148,18 @@ Stages reales encontrados:
 - `Build Boot JARs`
 - `Build Docker Images`
 - `Validate Docker Compose Config`
-- `Generate Release Notes`
+- `Stage Kubernetes Dry Run`
+- `Run E2E Suite`
+- `Run Locust Smoke`
+- `Master Release Notes`
 - `Archive Test Reports`
 
 Riesgos:
 
 - No hay evidencia versionada de ejecucion real en Jenkins.
-- No hay deploy real en dev; solo validacion `docker compose config`.
+- No hay deploy real; Kubernetes se valida con `kubectl apply --dry-run=client -f k8s/dev/`.
 - No existe `release-notes/RELEASE_NOTES.md` en el workspace auditado; se genera dinamicamente dentro del job.
+- E2E y Locust requieren que el stack Compose este arriba en `localhost` y que el agente tenga PowerShell/pwsh, Python y Locust.
 
 ### Stage
 
@@ -259,7 +263,7 @@ Riesgos:
 4. **Stage/master no despliegan por defecto.** `DEPLOY_TO_K8S=false` evita despliegues accidentales, pero para la rubrica se necesita evidencia de deploy real o justificar claramente el alcance.
 5. **No hay registry ni estrategia de publicacion de imagenes.** Docker build local existe, pero Kubernetes y Jenkins stage/master quedan limitados si el cluster no comparte daemon.
 6. **Documentacion final/video/zip no estan cerrados.** La rubrica exige documento/video y zip final; no se encontraron como entregables finales.
-7. **Inconsistencia documental sobre Locust.** `performance/locust/` esta completo, pero `e2e/README.md` y `e2e/results/e2e-report.md` dicen que Locust sigue pendiente.
+7. **Inconsistencia documental menor sobre Locust.** `performance/locust/` esta completo y `e2e/results/e2e-report.md` ya fue corregido, pero `e2e/README.md` aun tiene una mencion historica de Locust pendiente.
 8. **Docs Docker Compose tienen un ejemplo desactualizado.** `docs/docker-compose.md` muestra comandos con `--build-arg JAR_FILE`, mientras `Dockerfile.service` usa `ARG SERVICE_NAME`.
 
 ## 10. Plan de cierre para llegar al DoD
