@@ -694,3 +694,10 @@ Limitaciones que se mantienen sin inventar evidencia:
 - **Limitaciones reales:** La inicialización de Spring Boot masiva excede los delays estrictos definidos en los probes.
 - **Comandos principales ejecutados:** kubectl apply -f k8s/dev/*, kubectl get pods -n circleguard-dev, kubectl port-forward ... 
 
+
+### Corrección de Startup Probes
+- **Problema:** identity-service y promotion-service reiniciaban constantemente en k8s local debido a un livenessProbe agresivo.
+- **Solución:** Se agregó un startupProbe explícito en ambos dándoles amplia holgura de inicialización.
+- **Resultado de pods:** 12/12 en 1/1 Running.
+- **Estado:** COMPLETO.
+

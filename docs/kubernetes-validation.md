@@ -8,6 +8,7 @@
 ## Cambios de estabilidad aplicados
 - `enableServiceLinks: false` en `k8s/dev/neo4j.yaml`
 - `enableServiceLinks: false` en `k8s/dev/kafka.yaml`
+- `startupProbe` agregado (delay 30s, failureThreshold 15) en `k8s/dev/identity-service.yaml` y `k8s/dev/promotion-service.yaml` para entornos de inicialización lenta.
 
 ## Validación de middleware
 | Pod | Estado | Ready | Observación |
@@ -23,8 +24,8 @@
 | Pod | Estado | Ready | Observación | Logs/diagnóstico relevante |
 |---|---|---|---|---|
 | auth-service | Running | 1/1 | Boot ok | N/A |
-| identity-service | Running | 0/1 | Reinicios constantes | Falla el liveness probe por arrancar muy lento (readiness/liveness demasiado estricta) |
-| promotion-service | Running | 0/1 | Reinicios constantes | Falla el liveness probe por arrancar muy lento (readiness/liveness demasiado estricta) |
+| identity-service | Running | 1/1 | Boot ok | Reinicios curados gracias a startupProbe |
+| promotion-service | Running | 1/1 | Boot ok | Reinicios curados gracias a startupProbe |
 | notification-service | Running | 1/1 | Boot ok | N/A |
 | form-service | Running | 1/1 | Requiere reinicio | Liveness fallaba pero tras un reinicio logró estar Ready 1/1 |
 | gateway-service | Running | 1/1 | Boot ok | Reachability comprobada |
@@ -47,12 +48,12 @@ redis                  ClusterIP   10.102.152.94    6379/TCP
 zookeeper              ClusterIP   10.111.75.222    2181/TCP
 ```
 
-## Errores encontrados
-- **`identity-service` & `promotion-service`**: Los pods quedan atrapados en CrashLoopBackOff/reinicios limitados porque las reglas de liveness y readiness son muy agresivas (delay=45s + 3 intentos) frente al entorno local que sufre latencias por despliegues simultáneos masivos de Spring Boot. 
+## Errores encontrados (Resueltos)
+- **`identity-service` & `promotion-service`**: Los pods quedaban atrapados en CrashLoopBackOff/reinicios limitados porque las reglas de liveness y readiness eran muy agresivas frente al entorno local. Solucionado inyectando un `startupProbe` que le otorga hasta 180 segundos a la app para inicializar Tomcat.
 
 ## Conclusión
 - Kubernetes configurado: COMPLETO
-- Manifests validados: PARCIAL
+- Manifests validados: COMPLETO
 - Middleware desplegado: COMPLETO
-- Microservicios desplegados: PARCIAL
+- Microservicios desplegados: COMPLETO
 - Stage environment: PENDIENTE

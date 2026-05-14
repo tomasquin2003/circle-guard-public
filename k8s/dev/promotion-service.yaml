@@ -74,6 +74,13 @@ spec:
                 secretKeyRef:
                   name: circleguard-dev-secrets
                   key: JWT_SECRET
+          startupProbe:
+            tcpSocket:
+              port: 8088
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 15
           readinessProbe:
             tcpSocket:
               port: 8088
