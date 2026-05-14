@@ -651,3 +651,33 @@ Los pendientes principales para completar el taller son:
 ## 13. Proxima fase recomendada
 
 La siguiente fase recomendada es aprovechar la base Compose ya validada operativamente, el pipeline Jenkins base dev, la evidencia E2E ya consolidada y esta nueva validacion de rendimiento con Locust para evolucionar hacia un despliegue real de cluster con middleware, ingress y estrategia de publicacion de imagenes. En paralelo, sigue siendo conveniente continuar con pipelines de `stage` y `master` o `release`, validacion real en Kubernetes y consolidacion final de la documentacion de entrega.
+
+## 14. Auditoría DoD y cierre de brechas
+
+Se realizo una auditoria contra la rubrica oficial transcrita en `docs/RUBRICA_TALLER_261.md`, usando tambien `TALLER_PROGRESS.md` y archivos reales del repositorio como fuente de evidencia. Como resultado se creo:
+
+- `AUDIT_DOD_261.md`
+
+El informe marca cada criterio como `COMPLETO`, `PARCIAL` o `PENDIENTE`, cita rutas exactas y mantiene como riesgo cualquier flujo E2E que sea solo smoke/reachability o que este bloqueado por falta de JWT, credenciales o seed data.
+
+Cambios aplicados en esta fase:
+
+- Se actualizo `e2e/results/e2e-report.md` para no afirmar que Locust sigue pendiente. La evidencia real de Locust esta en `performance/locust/locustfile.py` y en los CSVs versionados bajo `performance/locust/results/`.
+- Se mejoro `Jenkinsfile` para reflejar explicitamente un flujo dev/stage/master defendible:
+  - Mantiene tests Gradle de los seis microservicios seleccionados.
+  - Mantiene `bootJar`.
+  - Mantiene `docker build` con `Dockerfile.service`.
+  - Mantiene `docker compose config`.
+  - Agrega `Stage Kubernetes Dry Run` con `kubectl apply --dry-run=client -f k8s/dev/`.
+  - Agrega `Run E2E Suite` con PowerShell en Windows o `pwsh` en Linux cuando este disponible.
+  - Agrega `Run Locust Smoke` con `python -m locust -f performance/locust/locustfile.py --host http://localhost --headless -u 5 -r 1 -t 30s --csv performance/locust/results/jenkins-smoke`.
+  - Mejora release notes automaticas para incluir commit completo, rama, servicios, validaciones, E2E, Locust, Kubernetes dry-run y ultimos commits.
+- Se actualizo `docs/jenkins.md` para documentar el pipeline actual y sus prerequisitos reales: Docker, Docker Compose, `kubectl`, Python/Locust, PowerShell o `pwsh`, y stack Compose levantado para E2E/Locust.
+
+Limitaciones que se mantienen sin inventar evidencia:
+
+- No se afirma despliegue real en Kubernetes. El `Jenkinsfile` principal valida manifests con dry-run.
+- No hay evidencia de ejecucion real en un servidor Jenkins dentro del repositorio; el pipeline queda preparado para ejecutarse.
+- No se agregaron credenciales, JWTs ni seed data artificial.
+- Los E2E siguen documentando limitaciones reales: algunos checks son smoke/reachability, `Identity map/lookup` puede quedar bloqueado por auth y `Promotion recovery` requiere seed data/JWT validos.
+- El documento final consolidado, video de entrega y zip final siguen pendientes como entregables academicos.
