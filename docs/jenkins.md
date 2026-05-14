@@ -1,16 +1,19 @@
-# Jenkins pipeline base para dev
+# Jenkins pipeline dev/stage/master
 
 ## Objetivo
 
-Este documento describe el `Jenkinsfile` base para ambiente dev del repositorio `circle-guard-public`. El pipeline automatiza el flujo ya validado manualmente para los seis microservicios seleccionados:
+Este documento describe el `Jenkinsfile` principal del repositorio `circle-guard-public`. El pipeline conserva el flujo base de dev ya preparado para los seis microservicios seleccionados y agrega validaciones explicitas para stage y master sin afirmar despliegue real en Kubernetes.
+
+Flujo cubierto:
 
 1. `test`
 2. `bootJar`
 3. `docker build`
 4. `docker compose config`
-5. `Generate Release Notes`
-
-La intencion es dejar una base clara y documentable para el taller, sin deploy real, sin registry y sin Kubernetes todavia.
+5. `kubectl apply --dry-run=client -f k8s/dev/`
+6. `e2e/run-e2e.ps1`
+7. Locust smoke headless
+8. Master Release Notes automaticas
 
 ## Servicios incluidos
 
@@ -23,33 +26,41 @@ La intencion es dejar una base clara y documentable para el taller, sin deploy r
 
 ## Prerequisitos del agente Jenkins
 
-El `Jenkinsfile` esta orientado preferiblemente a un agente Linux con acceso a Docker. Antes de ejecutarlo, el nodo debe contar con:
+El agente debe tener:
 
-- Java 21 disponible en `PATH`
-- Gradle Wrapper funcional desde la raiz del repositorio
-- Docker CLI disponible
-- Docker Compose plugin disponible mediante `docker compose`
-- Acceso al Docker daemon para construir imagenes locales
+- Java 21 disponible en `PATH`.
+- Git y acceso al repositorio.
+- Gradle Wrapper ejecutable desde la raiz del repo.
+- Docker CLI y acceso al Docker daemon.
+- Docker Compose plugin disponible mediante `docker compose`.
+- `kubectl` disponible en `PATH` para el dry-run Kubernetes.
+- Python disponible como `python`.
+- Locust instalado en el entorno Python usado por Jenkins.
+- PowerShell Windows para ejecutar `e2e/run-e2e.ps1` en agentes Windows.
+- `pwsh` en Linux si se quiere ejecutar el E2E PowerShell desde un agente Linux.
+- Stack Docker Compose levantado y alcanzable en `localhost` antes de ejecutar E2E y Locust.
 
-Nota importante:
-En Windows local se usa `gradlew.bat`, pero este pipeline esta pensado primero para agentes Linux. El `Jenkinsfile` incluye logica con `isUnix()` para usar `./gradlew` en Unix y `gradlew.bat` en Windows si fuera necesario.
+Instalacion Locust de referencia:
+
+```powershell
+pip install -r performance/locust/requirements.txt
+```
+
+Levantar stack local requerido por E2E/Locust:
+
+```powershell
+docker compose -f docker-compose.dev.yml -f docker-compose.app.yml up -d
+```
 
 ## Stages del pipeline
 
 ### 1. `Checkout`
 
-Realiza `checkout scm` desde Jenkins. No agrega logica adicional de ramas ni credenciales especiales.
+Realiza `checkout scm` desde Jenkins.
 
 ### 2. `Environment Info`
 
-Imprime versiones de herramientas base para dejar trazabilidad del entorno:
-
-```bash
-java --version
-./gradlew --version
-docker --version
-docker compose version
-```
+Imprime versiones disponibles de Java, Gradle Wrapper, Docker, Docker Compose y, si existen, `kubectl` y Python. Si `kubectl` o Python no estan instalados, se documenta en consola y el stage correspondiente fallara con un mensaje explicito.
 
 ### 3. `Run Selected Service Tests`
 
@@ -68,33 +79,13 @@ Ejecuta pruebas Gradle de los seis servicios seleccionados:
 
 ### 4. `Build Boot JARs`
 
-Construye los artefactos ejecutables `bootJar` para los mismos seis servicios:
-
-```bash
-./gradlew \
-  :services:circleguard-auth-service:bootJar \
-  :services:circleguard-identity-service:bootJar \
-  :services:circleguard-promotion-service:bootJar \
-  :services:circleguard-notification-service:bootJar \
-  :services:circleguard-form-service:bootJar \
-  :services:circleguard-gateway-service:bootJar \
-  --console=plain --no-daemon
-```
+Construye los artefactos ejecutables `bootJar` para los mismos seis servicios.
 
 ### 5. `Build Docker Images`
 
-Construye imagenes locales `:dev` usando `Dockerfile.service` y el argumento `SERVICE_NAME`:
+Construye imagenes locales `:dev` usando `Dockerfile.service` y el argumento `SERVICE_NAME`.
 
-```bash
-docker build -f Dockerfile.service --build-arg SERVICE_NAME=circleguard-auth-service -t circleguard-auth-service:dev .
-docker build -f Dockerfile.service --build-arg SERVICE_NAME=circleguard-identity-service -t circleguard-identity-service:dev .
-docker build -f Dockerfile.service --build-arg SERVICE_NAME=circleguard-promotion-service -t circleguard-promotion-service:dev .
-docker build -f Dockerfile.service --build-arg SERVICE_NAME=circleguard-notification-service -t circleguard-notification-service:dev .
-docker build -f Dockerfile.service --build-arg SERVICE_NAME=circleguard-form-service -t circleguard-form-service:dev .
-docker build -f Dockerfile.service --build-arg SERVICE_NAME=circleguard-gateway-service -t circleguard-gateway-service:dev .
-```
-
-Este pipeline no publica imagenes a ningun registry. Solo deja imagenes locales listas para siguientes fases.
+Este pipeline no publica imagenes a ningun registry. Solo deja imagenes locales para validaciones del agente.
 
 ### 6. `Validate Docker Compose Config`
 
@@ -104,107 +95,90 @@ Valida que la composicion entre middleware y apps sea consistente:
 docker compose -f docker-compose.dev.yml -f docker-compose.app.yml config
 ```
 
-En esta fase no se ejecuta `docker compose up`. Solo se valida la configuracion combinada.
+Esta etapa no levanta el stack. Para E2E y Locust, el stack debe estar levantado previamente o por una preparacion externa del job.
 
-### 7. `Generate Release Notes`
+### 7. `Stage Kubernetes Dry Run`
 
-Genera el archivo `release-notes/RELEASE_NOTES.md` como artefacto del pipeline Jenkins. Estas release notes son tecnicas y automaticas; no representan todavia una release oficial del producto.
+Valida los manifests Kubernetes sin desplegar:
 
-El contenido minimo generado incluye:
+```bash
+kubectl apply --dry-run=client -f k8s/dev/
+```
 
-- Metadatos del build: numero de build, nombre del job, rama, commit corto y fecha/hora de generacion.
-- Los seis microservicios seleccionados en el taller.
-- Las validaciones ejecutadas por el pipeline base: tests, `bootJar`, `docker build` y `docker compose config`.
-- Los ultimos 10 commits del repositorio usando `git log --pretty=format:"- %h %s" -10`.
+Esta etapa es evidencia de validacion de manifiestos. No se debe presentar como despliegue real en cluster.
 
-Importante:
+### 8. `Run E2E Suite`
 
-- Estas release notes se archivan como evidencia del pipeline Jenkins.
-- Todavia no se crean tags Git.
-- Todavia no se crean GitHub Releases.
-- Todavia no se publica una release oficial o formal.
+En agente Windows ejecuta:
 
-### 8. `Archive Test Reports`
+```powershell
+powershell -ExecutionPolicy Bypass -File e2e/run-e2e.ps1
+```
 
-Publica reportes JUnit y archiva artefactos utiles del taller:
+En agente Linux intenta usar:
+
+```bash
+pwsh -ExecutionPolicy Bypass -File e2e/run-e2e.ps1
+```
+
+Si `pwsh` no existe, el stage deja una nota en consola. Para evidencia completa se recomienda usar un agente Windows o instalar PowerShell 7 en Linux.
+
+### 9. `Run Locust Smoke`
+
+Ejecuta un smoke de rendimiento contra el stack expuesto en `localhost`:
+
+```bash
+python -m locust -f performance/locust/locustfile.py --host http://localhost --headless -u 5 -r 1 -t 30s --csv performance/locust/results/jenkins-smoke
+```
+
+Si Python o Locust no estan disponibles, el pipeline falla con una explicacion explicita.
+
+### 10. `Master Release Notes`
+
+Genera `release-notes/RELEASE_NOTES.md` como artefacto del pipeline Jenkins.
+
+Incluye:
+
+- Numero de build.
+- Nombre del job.
+- Rama.
+- Commit completo.
+- Fecha/hora de generacion.
+- Servicios seleccionados.
+- Pruebas y validaciones ejecutadas: tests Gradle, `bootJar`, Docker build, Docker Compose config, Kubernetes dry-run, E2E y Locust smoke.
+- Alcance de ambiente dev/stage/master.
+- Ultimos 10 commits.
+
+Estas release notes son tecnicas y automaticas. No crean tags Git, GitHub Releases ni una release formal publicada.
+
+### 11. `Archive Test Reports`
+
+Publica reportes JUnit y archiva artefactos utiles:
 
 - `services/**/build/test-results/test/*.xml`
 - `services/**/build/libs/*.jar`
 - `docs/*.md`
 - `release-notes/*.md`
 - `TALLER_PROGRESS.md`
+- `e2e/results/*.md`
+- `performance/locust/results/*.csv`
+- `k8s/**/*.yaml`
 
-Ademas de este stage, el `post { always { ... } }` repite la publicacion para intentar conservar evidencia incluso si una etapa previa falla.
+## Limitaciones reales
 
-## Comandos manuales equivalentes
-
-### Informacion de entorno
-
-```bash
-java --version
-./gradlew --version
-docker --version
-docker compose version
-```
-
-### Tests
-
-```bash
-./gradlew :services:circleguard-auth-service:test \
-  :services:circleguard-identity-service:test \
-  :services:circleguard-promotion-service:test \
-  :services:circleguard-notification-service:test \
-  :services:circleguard-form-service:test \
-  :services:circleguard-gateway-service:test \
-  --console=plain --no-daemon
-```
-
-### Boot JARs
-
-```bash
-./gradlew :services:circleguard-auth-service:bootJar \
-  :services:circleguard-identity-service:bootJar \
-  :services:circleguard-promotion-service:bootJar \
-  :services:circleguard-notification-service:bootJar \
-  :services:circleguard-form-service:bootJar \
-  :services:circleguard-gateway-service:bootJar \
-  --console=plain --no-daemon
-```
-
-### Imagenes Docker locales
-
-```bash
-docker build -f Dockerfile.service --build-arg SERVICE_NAME=circleguard-auth-service -t circleguard-auth-service:dev .
-docker build -f Dockerfile.service --build-arg SERVICE_NAME=circleguard-identity-service -t circleguard-identity-service:dev .
-docker build -f Dockerfile.service --build-arg SERVICE_NAME=circleguard-promotion-service -t circleguard-promotion-service:dev .
-docker build -f Dockerfile.service --build-arg SERVICE_NAME=circleguard-notification-service -t circleguard-notification-service:dev .
-docker build -f Dockerfile.service --build-arg SERVICE_NAME=circleguard-form-service -t circleguard-form-service:dev .
-docker build -f Dockerfile.service --build-arg SERVICE_NAME=circleguard-gateway-service -t circleguard-gateway-service:dev .
-```
-
-### Validacion Compose
-
-```bash
-docker compose -f docker-compose.dev.yml -f docker-compose.app.yml config
-```
-
-## Limitaciones actuales
-
+- No se afirma despliegue real en Kubernetes; el `Jenkinsfile` principal ejecuta dry-run.
 - No publica imagenes a un Docker registry.
-- No despliega a Kubernetes.
-- No ejecuta pruebas E2E todavia.
-- No ejecuta escenarios Locust todavia.
-- No hace `docker compose up` ni despliegue real.
-- No crea tags Git todavia.
-- No crea GitHub Releases todavia.
-- No publica releases oficiales todavia.
+- E2E y Locust requieren que el stack Compose este arriba y accesible en `localhost`.
+- E2E depende de PowerShell. En Linux se requiere `pwsh`.
+- Locust requiere Python y dependencias de `performance/locust/requirements.txt`.
+- No se inventan credenciales, JWTs ni seed data; por eso algunos E2E pueden quedar `BLOCKED_BY_AUTH` o `SKIPPED_NO_SEED`.
+- No crea tags Git ni GitHub Releases.
 
-## Proxima evolucion recomendada
+## Evidencia esperada para entrega
 
-- Pipeline para rama `stage`
-- Pipeline para `master` o `release`
-- Publicacion de imagenes a registry
-- Tags y versionado formal de release
-- GitHub Releases o equivalente
-- Despliegue sobre Kubernetes
-- Ejecucion de pruebas E2E y rendimiento como etapas separadas
+- Captura o log de Jenkins con todos los stages visibles.
+- Consola del dry-run Kubernetes.
+- Reporte `e2e/results/e2e-report.md`.
+- CSVs Locust bajo `performance/locust/results/`.
+- Artefacto `release-notes/RELEASE_NOTES.md` generado por Jenkins.
+- Reportes JUnit publicados por Jenkins.
