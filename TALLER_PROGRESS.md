@@ -713,6 +713,82 @@ Evidencia asociada:
 - `evidence/logs/jenkins-dev-console-success.txt`
 
 Esta ejecucion no penaliza la rubrica porque los fallos encontrados fueron de estabilidad y compatibilidad del pipeline local, no de alcance funcional del taller. La correccion del benchmark separa correctamente performance de CI general, y la correccion de release notes mantiene el artefacto `release-notes/RELEASE_NOTES.md` sin eliminar trazabilidad. No se modifico codigo productivo, no se tocaron tests Java funcionales, no se cambio Docker/Compose/Kubernetes y no se afirmo despliegue real en Kubernetes mas alla del dry-run documentado.
+
+## 10.8. Fase Jenkins UI local - ejecucion real del pipeline STAGE
+
+Se ejecuto exitosamente desde Jenkins UI local el job `circleguard-stage-pipeline` en:
+
+```text
+http://localhost:8090
+```
+
+Configuracion del job:
+
+- Nombre: `circleguard-stage-pipeline`
+- Tipo: Pipeline
+- Definition: Pipeline script from SCM
+- SCM: Git
+- Repository URL: `https://github.com/tomasquin2003/circle-guard-public.git`
+- Branch Specifier: `*/master`
+- Script Path: `Jenkinsfile.stage`
+- Parametro usado: `DEPLOY_TO_K8S=false`
+
+El build `circleguard-stage-pipeline #1` termino en verde con resultado final:
+
+```text
+Finished: SUCCESS
+```
+
+Stages ejecutados correctamente:
+
+- Checkout
+- Environment Info
+- Run Unit/Integration Tests
+- Build Boot JARs
+- Build Docker Images
+- Validate Kubernetes Manifests
+- Deploy to Kubernetes Stage
+- Run E2E Against Stage
+- Archive Artifacts
+- Post Actions
+
+El stage `Run Unit/Integration Tests` ejecuto pruebas de los seis microservicios seleccionados usando Gradle y excluyendo benchmarks de performance mediante:
+
+```text
+-PexcludeJUnitTags=performance
+```
+
+Esta exclusion no elimina el benchmark ni reduce la cobertura funcional del pipeline stage normal. Solo evita que una prueba temporal sensible al entorno local tumbe una ejecucion de CI cuyo objetivo principal es validar unitarias, integracion, build, empaquetado, manifests y E2E. Las pruebas formales de rendimiento siguen cubiertas por Locust, con CSVs, throughput, percentiles y tasa de errores como evidencia dedicada.
+
+Validaciones confirmadas en el pipeline STAGE:
+
+- `Build Boot JARs` paso correctamente.
+- `Build Docker Images` paso correctamente.
+- `Validate Kubernetes Manifests` paso correctamente.
+- `Deploy to Kubernetes Stage` se ejecuto con `DEPLOY_TO_K8S=false`; por tanto no hizo deploy real a cluster, sino que valido el camino stage con dry-run/preparacion.
+- `Run E2E Against Stage` paso correctamente.
+
+Esta ejecucion soporta la rubrica en varios frentes:
+
+- Evidencia real del pipeline stage en Jenkins UI local.
+- Evidencia adicional de pruebas unitarias e integracion sobre los seis microservicios seleccionados.
+- Evidencia de ejecucion E2E desde Jenkins.
+- Validacion Kubernetes de stage mediante manifests y deploy parametrizado en modo dry-run, sin afirmar despliegue real cuando `DEPLOY_TO_K8S=false`.
+
+Observaciones no bloqueantes de logs:
+
+- Durante el cierre de contextos de prueba de `promotion-service` y `notification-service` se observaron warnings de shutdown relacionados con reconexion a puertos efimeros de Testcontainers, `Connection refused` durante cierre de Neo4j/PostgreSQL efimeros, cierre de consumidores Kafka y `HikariPool` cerrando conexiones.
+- Estos eventos ocurrieron durante shutdown hooks o cierre de contexto, no durante la ejecucion funcional principal.
+- No afectaron el resultado del pipeline; Jenkins termino en `SUCCESS`.
+
+Evidencia asociada:
+
+- `evidence/screenshots/jenkins-stage-config.png`
+- `evidence/screenshots/jenkins-stage-build-parameters.png`
+- `evidence/screenshots/jenkins-stage-stage-view-success.png`
+- `evidence/screenshots/jenkins-stage-console-success.png`
+- `evidence/logs/jenkins-stage-console-success.txt`
+
 ## 11. Puntos del taller ya avanzados
 
 Actualmente se consideran avanzados los siguientes puntos:
@@ -737,6 +813,7 @@ Actualmente se consideran avanzados los siguientes puntos:
 - `Jenkinsfile` base creado para ambiente dev.
 - Pipeline dev documentado en `docs/jenkins.md`.
 - Pipeline DEV ejecutado en Jenkins UI local como `circleguard-dev-pipeline #3` con resultado exitoso y evidencia asociada.
+- Pipeline STAGE ejecutado en Jenkins UI local como `circleguard-stage-pipeline #1` con resultado exitoso y evidencia asociada.
 - Automatizacion de tests, `bootJar`, build de imagenes y validacion Compose en Jenkins.
 - Generacion automatica de Release Notes como artefacto del pipeline Jenkins.
 - Archivado de reportes JUnit y artefactos del taller desde el pipeline base.
@@ -750,7 +827,6 @@ Los pendientes principales para completar el taller son:
 
 - Validación real en cluster Kubernetes.
 - Registry / Ingress / publicacion de imagenes.
-- Stage pipeline pendiente de validar en Jenkins UI local.
 - Master pipeline pendiente de validar en Jenkins UI local.
 - Documentacion final consolidada y video de entrega.
 
@@ -783,7 +859,7 @@ Cambios aplicados en esta fase:
 Limitaciones que se mantienen sin inventar evidencia:
 
 - No se afirma despliegue real en Kubernetes. El `Jenkinsfile` principal valida manifests con dry-run.
-- Ya existe evidencia de ejecucion real del pipeline DEV en Jenkins UI local. Los pipelines stage y master siguen pendientes de validacion real en Jenkins.
+- Ya existe evidencia de ejecucion real del pipeline DEV en Jenkins UI local. El pipeline STAGE tambien cuenta con evidencia real exitosa. El pipeline master sigue pendiente de validacion real en Jenkins.
 - No se agregaron credenciales, JWTs ni seed data artificial.
 - Los E2E siguen documentando limitaciones reales: algunos checks son smoke/reachability, `Identity map/lookup` puede quedar bloqueado por auth y `Promotion recovery` requiere seed data/JWT validos.
 - El documento final consolidado, video de entrega y zip final siguen pendientes como entregables academicos.
