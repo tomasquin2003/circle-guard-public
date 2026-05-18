@@ -789,6 +789,84 @@ Evidencia asociada:
 - `evidence/screenshots/jenkins-stage-console-success.png`
 - `evidence/logs/jenkins-stage-console-success.txt`
 
+## 10.9. Fase Jenkins UI local - ejecucion real del pipeline MASTER
+
+Se ejecuto exitosamente desde Jenkins UI local el job `circleguard-master-pipeline` en:
+
+```text
+http://localhost:8090
+```
+
+Configuracion del job:
+
+- Nombre: `circleguard-master-pipeline`
+- Tipo: Pipeline
+- Definition: Pipeline script from SCM
+- SCM: Git
+- Repository URL: `https://github.com/tomasquin2003/circle-guard-public.git`
+- Branch Specifier: `*/master`
+- Script Path: `Jenkinsfile.master`
+- Parametro usado: default `DEPLOY_TO_K8S=false`
+
+El build `circleguard-master-pipeline #1` termino en verde con resultado final:
+
+```text
+Finished: SUCCESS
+```
+
+Stages ejecutados correctamente:
+
+- Checkout
+- Environment Info
+- Run Full Test Suite
+- Build Boot JARs
+- Build Docker Images
+- Validate Docker Compose Config
+- Validate Kubernetes Manifests
+- Run E2E Smoke + Functional
+- Run Locust Smoke
+- Deploy to Kubernetes Master
+- Generate Release Notes
+- Archive Release Artifacts
+- Post Actions
+
+El stage `Run Full Test Suite` ejecuto la suite completa normal de los seis microservicios seleccionados. La suite normal excluye benchmarks fragiles con:
+
+```text
+-PexcludeJUnitTags=performance
+```
+
+Esta exclusion no elimina el benchmark ni reduce la cobertura funcional. Solo evita que una prueba temporal sensible al entorno tumbe CI. Las pruebas formales de rendimiento quedan cubiertas por Locust.
+
+Validaciones confirmadas en el pipeline MASTER:
+
+- `Build Boot JARs` paso correctamente.
+- `Build Docker Images` paso correctamente.
+- `Validate Docker Compose Config` paso correctamente.
+- `Validate Kubernetes Manifests` paso correctamente.
+- `Run E2E Smoke + Functional` paso correctamente.
+- `Run Locust Smoke` paso correctamente.
+- `Deploy to Kubernetes Master` se ejecuto con `DEPLOY_TO_K8S=false`; por tanto no hizo deploy real a cluster, sino que valido el camino master/release de forma parametrizada.
+- `Generate Release Notes` paso correctamente y genero las release notes automaticas del build.
+- `Archive Release Artifacts` paso correctamente y archivo los artefactos de release configurados en el pipeline.
+
+Esta ejecucion soporta la rubrica en varios frentes:
+
+- Evidencia real del pipeline master/release en Jenkins UI local.
+- Evidencia de pruebas completas normales sobre los seis microservicios seleccionados.
+- Evidencia de E2E smoke + functional desde Jenkins.
+- Evidencia de Locust smoke desde Jenkins.
+- Validacion Docker, Docker Compose y Kubernetes manifests dentro del pipeline.
+- Release notes automaticas generadas y archivadas como artefacto del build.
+
+Evidencia asociada:
+
+- `evidence/screenshots/jenkins-master-config.png`
+- `evidence/screenshots/jenkins-master-build-parameters.png`
+- `evidence/screenshots/jenkins-master-stage-view-success.png`
+- `evidence/screenshots/jenkins-master-console-success.png`
+- `evidence/logs/jenkins-master-console-success.txt`
+
 ## 11. Puntos del taller ya avanzados
 
 Actualmente se consideran avanzados los siguientes puntos:
@@ -814,6 +892,7 @@ Actualmente se consideran avanzados los siguientes puntos:
 - Pipeline dev documentado en `docs/jenkins.md`.
 - Pipeline DEV ejecutado en Jenkins UI local como `circleguard-dev-pipeline #3` con resultado exitoso y evidencia asociada.
 - Pipeline STAGE ejecutado en Jenkins UI local como `circleguard-stage-pipeline #1` con resultado exitoso y evidencia asociada.
+- Pipeline MASTER ejecutado en Jenkins UI local como `circleguard-master-pipeline #1` con resultado exitoso y evidencia asociada.
 - Automatizacion de tests, `bootJar`, build de imagenes y validacion Compose en Jenkins.
 - Generacion automatica de Release Notes como artefacto del pipeline Jenkins.
 - Archivado de reportes JUnit y artefactos del taller desde el pipeline base.
@@ -826,9 +905,8 @@ Actualmente se consideran avanzados los siguientes puntos:
 Los pendientes principales para completar el taller son:
 
 - Validación real en cluster Kubernetes.
-- Registry / Ingress / publicacion de imagenes.
-- Master pipeline pendiente de validar en Jenkins UI local.
-- Documentacion final consolidada y video de entrega.
+- Consolidar evidencias finales de Jenkins, Docker, Kubernetes, E2E y Locust.
+- Documentacion final consolidada, video de entrega y zip final.
 
 ## 13. Proxima fase recomendada
 
@@ -859,7 +937,7 @@ Cambios aplicados en esta fase:
 Limitaciones que se mantienen sin inventar evidencia:
 
 - No se afirma despliegue real en Kubernetes. El `Jenkinsfile` principal valida manifests con dry-run.
-- Ya existe evidencia de ejecucion real del pipeline DEV en Jenkins UI local. El pipeline STAGE tambien cuenta con evidencia real exitosa. El pipeline master sigue pendiente de validacion real en Jenkins.
+- Ya existe evidencia de ejecucion real de los pipelines DEV, STAGE y MASTER en Jenkins UI local. No se afirma despliegue real a Kubernetes porque los despliegues parametrizados se ejecutaron con `DEPLOY_TO_K8S=false`.
 - No se agregaron credenciales, JWTs ni seed data artificial.
 - Los E2E siguen documentando limitaciones reales: algunos checks son smoke/reachability, `Identity map/lookup` puede quedar bloqueado por auth y `Promotion recovery` requiere seed data/JWT validos.
 - El documento final consolidado, video de entrega y zip final siguen pendientes como entregables academicos.
