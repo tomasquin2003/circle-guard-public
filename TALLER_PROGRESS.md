@@ -709,7 +709,6 @@ Evidencia asociada:
 
 - `evidence/screenshots/jenkins-dev-config.png`
 - `evidence/screenshots/jenkins-dev-stage-view-success.png`
-- `evidence/screenshots/jenkins-dev-console-success.png`
 - `evidence/logs/jenkins-dev-console-success.txt`
 
 Esta ejecucion no penaliza la rubrica porque los fallos encontrados fueron de estabilidad y compatibilidad del pipeline local, no de alcance funcional del taller. La correccion del benchmark separa correctamente performance de CI general, y la correccion de release notes mantiene el artefacto `release-notes/RELEASE_NOTES.md` sin eliminar trazabilidad. No se modifico codigo productivo, no se tocaron tests Java funcionales, no se cambio Docker/Compose/Kubernetes y no se afirmo despliegue real en Kubernetes mas alla del dry-run documentado.
@@ -784,9 +783,7 @@ Observaciones no bloqueantes de logs:
 Evidencia asociada:
 
 - `evidence/screenshots/jenkins-stage-config.png`
-- `evidence/screenshots/jenkins-stage-build-parameters.png`
 - `evidence/screenshots/jenkins-stage-stage-view-success.png`
-- `evidence/screenshots/jenkins-stage-console-success.png`
 - `evidence/logs/jenkins-stage-console-success.txt`
 
 ## 10.9. Fase Jenkins UI local - ejecucion real del pipeline MASTER
@@ -862,9 +859,7 @@ Esta ejecucion soporta la rubrica en varios frentes:
 Evidencia asociada:
 
 - `evidence/screenshots/jenkins-master-config.png`
-- `evidence/screenshots/jenkins-master-build-parameters.png`
 - `evidence/screenshots/jenkins-master-stage-view-success.png`
-- `evidence/screenshots/jenkins-master-console-success.png`
 - `evidence/logs/jenkins-master-console-success.txt`
 
 ## 11. Puntos del taller ya avanzados
@@ -942,7 +937,7 @@ Limitaciones que se mantienen sin inventar evidencia:
 - Los E2E siguen documentando limitaciones reales: algunos checks son smoke/reachability, `Identity map/lookup` puede quedar bloqueado por auth y `Promotion recovery` requiere seed data/JWT validos.
 - El documento final consolidado, video de entrega y zip final siguen pendientes como entregables academicos.
 
-## Fase Kubernetes - validación local en Docker Desktop
+## Fase Kubernetes - validaciï¿½n local en Docker Desktop
 - **Fecha:** May 14, 2026
 - **Contexto:** docker-desktop
 - **Correcciones aplicadas:
@@ -951,13 +946,13 @@ Limitaciones que se mantienen sin inventar evidencia:
 - **Resultado de middleware:** COMPLETO. Todos los pods y dependencias en 1/1 Running.
 - **Resultado de microservicios:** PARCIAL. Muchos microservicios levantaron y son accesibles HTTP, pero identity-service y promotion-service fallan liveness constantmente.
 - **Estado final:** PARCIAL
-- **Limitaciones reales:** La inicialización de Spring Boot masiva excede los delays estrictos definidos en los probes.
+- **Limitaciones reales:** La inicializaciï¿½n de Spring Boot masiva excede los delays estrictos definidos en los probes.
 - **Comandos principales ejecutados:** kubectl apply -f k8s/dev/*, kubectl get pods -n circleguard-dev, kubectl port-forward ... 
 
 
-### Corrección de Startup Probes
+### Correcciï¿½n de Startup Probes
 - **Problema:** identity-service y promotion-service reiniciaban constantemente en k8s local debido a un livenessProbe agresivo.
-- **Solución:** Se agregó un startupProbe explícito en ambos dándoles amplia holgura de inicialización.
+- **Soluciï¿½n:** Se agregï¿½ un startupProbe explï¿½cito en ambos dï¿½ndoles amplia holgura de inicializaciï¿½n.
 - **Resultado de pods:** 12/12 en 1/1 Running.
 - **Estado:** COMPLETO.
 
