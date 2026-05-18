@@ -44,6 +44,17 @@ subprojects {
     }
 
     tasks.withType<Test> {
-        useJUnitPlatform()
+        useJUnitPlatform {
+            val excludedTags = project.findProperty("excludeJUnitTags")
+                ?.toString()
+                ?.split(",")
+                ?.map { it.trim() }
+                ?.filter { it.isNotEmpty() }
+                ?: emptyList()
+
+            if (excludedTags.isNotEmpty()) {
+                excludeTags(*excludedTags.toTypedArray())
+            }
+        }
     }
 }

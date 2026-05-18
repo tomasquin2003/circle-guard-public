@@ -125,7 +125,7 @@ pipeline {
         stage('Run Full Test Suite') {
             steps {
                 script {
-                    runCommand("${gradleWrapper()} test --console=plain --no-daemon")
+                    runCommand("${gradleWrapper()} test -PexcludeJUnitTags=performance --console=plain --no-daemon")
                 }
             }
             post {

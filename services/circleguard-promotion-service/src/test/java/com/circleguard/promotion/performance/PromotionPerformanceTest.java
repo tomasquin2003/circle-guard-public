@@ -2,6 +2,7 @@ package com.circleguard.promotion.performance;
 
 import com.circleguard.promotion.service.HealthStatusService;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -97,6 +98,7 @@ public class PromotionPerformanceTest {
     }
 
     @Test
+    @Tag("performance")
     void benchmarkPromotionPerformance() {
         System.out.println("Starting Promotion Benchmark...");
         

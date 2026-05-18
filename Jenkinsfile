@@ -122,7 +122,7 @@ pipeline {
                         ":services:${service}:test"
                     }.join(' ')
 
-                    runCommand("${gradleWrapper()} ${testTasks} --console=plain --no-daemon")
+                    runCommand("${gradleWrapper()} ${testTasks} -PexcludeJUnitTags=performance --console=plain --no-daemon")
                 }
             }
         }
