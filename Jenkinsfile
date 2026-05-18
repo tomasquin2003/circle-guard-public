@@ -35,7 +35,7 @@ def commandAvailable(String linuxCommand, String windowsCommand) {
     return bat(script: "@echo off\r\n${windowsCommand}", returnStatus: true) == 0
 }
 
-def generateReleaseNotes() {
+def generateReleaseNotes(List services) {
     def branchName = env.BRANCH_NAME ?: env.GIT_BRANCH ?: runCommandOutput('git rev-parse --abbrev-ref HEAD')
     def commit = runCommandOutput('git rev-parse HEAD')
     def generatedAt = new Date().format("yyyy-MM-dd HH:mm:ss 'UTC'", TimeZone.getTimeZone('UTC'))
@@ -60,7 +60,7 @@ def generateReleaseNotes() {
 - Fecha/hora de generacion: ${generatedAt}
 
 ## Selected services
-${selectedServices.collect { "- ${it}" }.join('\n')}
+${services.collect { "- ${it}" }.join('\n')}
 
 ## Validation performed
 ${validations.collect { "- ${it}" }.join('\n')}
@@ -202,7 +202,7 @@ pipeline {
         stage('Master Release Notes') {
             steps {
                 script {
-                    generateReleaseNotes()
+                    generateReleaseNotes(selectedServices)
                 }
             }
         }
